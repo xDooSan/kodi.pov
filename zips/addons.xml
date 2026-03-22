@@ -17,7 +17,7 @@
 		<news>INFO: For latest changes see Changelog within add-on.</news>
 		<assets><icon>pov.png</icon><fanart>pov_fanart.png</fanart></assets>
 	</extension>
-</addon><addon id="repository.xdoosan" name="xDooSan Repo" version="1.0.0" provider-name="xDooSan">
+</addon><addon id="repository.xdoosan" name="xDooSan Repo" version="1.0.1" provider-name="xDooSan">
     <requires>
         <import addon="xbmc.python" version="3.0.0" />
     </requires>
@@ -30,7 +30,12 @@
     </extension>
     <extension point="xbmc.addon.metadata">
         <summary>xDooSan Repo Omega</summary>
-        <description>Dépôt optimisé pour Kodi 21 Omega</description>
+        <description>Modification de fichiers POV en français</description>
+		<disclaimer>Utilisation personnelle uniquement.</disclaimer>
         <platform>all</platform>
+		<assets>
+            <icon>icon.png</icon>
+            <fanart>fanart.jpg</fanart>
+        </assets>
     </extension>
 </addon></addons>
