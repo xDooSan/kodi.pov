@@ -1,4 +1,4 @@
-<addon id="plugin.video.pov" version="6.03.20" name="POV" provider-name="kodifitzwell">
+<addon id="plugin.video.pov" version="6.03.20-xdoosan" name="POV" provider-name="xdoosan">
 	<requires>
 		<import addon="xbmc.python" version="3.0.0" />
 		<import addon="script.module.requests" />
