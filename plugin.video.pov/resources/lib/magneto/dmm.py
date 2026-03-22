@@ -70,6 +70,7 @@ class source:
 				package, episode_start = None, 0
 				hash = file['hash']
 				name = source_utils.clean_name(file['title'])
+				if not any(x in name.lower() for x in ['multi', 'french', 'vff', 'vfq', 'truefrench']): continue
 
 				if not source_utils.check_title(self.title, self.aliases, name, self.hdlr, self.year):
 					if self.total_seasons is None: continue
