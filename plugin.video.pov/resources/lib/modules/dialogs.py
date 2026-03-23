@@ -513,14 +513,14 @@ def clear_and_rescrape(mediatype, meta, season=None, episode=None):
 	play_params = {'mode': 'play_media', 'tmdb_id': meta['tmdb_id'], 'autoplay': 'false'}
 	if mediatype == 'movie': play_params.update({'mediatype': 'movie'})
 	else: play_params.update({'mediatype': 'episode', 'season': season, 'episode': episode})
-	Sources().playback_prep(play_params)
+	Sources().source_select(play_params)
 
 def rescrape_with_disabled(mediatype, meta, season=None, episode=None):
 	from sources import Sources
 	play_params = {'mode': 'play_media', 'tmdb_id': meta['tmdb_id'], 'autoplay': 'false', 'disabled_ignored': 'true', 'prescrape': 'false'}
 	if mediatype == 'movie': play_params.update({'mediatype': 'movie'})
 	else: play_params.update({'mediatype': 'episode', 'season': season, 'episode': episode})
-	Sources().playback_prep(play_params)
+	Sources().source_select(play_params)
 
 def scrape_with_filters_ignored(mediatype, meta, season=None, episode=None):
 	from sources import Sources
@@ -528,7 +528,7 @@ def scrape_with_filters_ignored(mediatype, meta, season=None, episode=None):
 	if mediatype == 'movie': play_params.update({'mediatype': 'movie'})
 	else: play_params.update({'mediatype': 'episode', 'season': season, 'episode': episode})
 	set_property('fs_filterless_search', 'true')
-	Sources().playback_prep(play_params)
+	Sources().source_select(play_params)
 
 def scrape_with_custom_values(mediatype, meta, season=None, episode=None):
 	from windows import open_window
@@ -555,7 +555,7 @@ def scrape_with_custom_values(mediatype, meta, season=None, episode=None):
 	if choice:
 		play_params['ignore_scrape_filters'] = 'true'
 		set_property('fs_filterless_search', 'true')
-	Sources().playback_prep(play_params)
+	Sources().source_select(play_params)
 
 def scrape_from_episode_group(meta, season, episode):
 	from indexers.tmdb_api import episode_groups, episode_group_details
@@ -596,5 +596,5 @@ def scrape_from_episode_group(meta, season, episode):
 	if choice is None: return
 	play_params = {'mode': 'play_media', 'tmdb_id': tmdb_id, 'mediatype': 'episode', 'season': season, 'episode': episode}
 	play_params.update({'custom_season': choice[0], 'custom_episode': choice[1]})
-	Sources().playback_prep(play_params)
+	Sources().source_select(play_params)
 

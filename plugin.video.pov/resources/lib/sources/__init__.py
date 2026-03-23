@@ -45,7 +45,7 @@ class Sources:
 		self.prescrape, self.disabled_ignored = 'true', 'false'
 		self.language = settings.get_language()
 
-	def playback_prep(self, params=None):
+	def source_select(self, params=None):
 		if self.clear_properties: self._clear_properties()
 		if params: self.params = params
 		params_get = self.params.get
@@ -53,11 +53,8 @@ class Sources:
 		self.background = params_get('background', 'false') == 'true'
 		if self.background: hide_busy_dialog()
 		else: show_busy_dialog()
-		if 'autoplay' in self.params: self.autoplay = params_get('autoplay', 'false') == 'true'
-		else: self.autoplay = settings.auto_play(params_get('mediatype'))
 		self.disabled_ignored = params_get('disabled_ignored', self.disabled_ignored) == 'true'
 		self.ignore_scrape_filters = params_get('ignore_scrape_filters', 'false') == 'true'
-		self.mediatype = params_get('mediatype')
 		self.tmdb_id = params_get('tmdb_id')
 		self.season = int(params_get('season')) if 'season' in self.params else ''
 		self.episode = int(params_get('episode')) if 'episode' in self.params else ''
@@ -65,6 +62,9 @@ class Sources:
 		self.custom_year = params_get('custom_year')
 		self.custom_season = int(params_get('custom_season')) if 'custom_season' in self.params else None
 		self.custom_episode = int(params_get('custom_episode')) if 'custom_episode' in self.params else None
+		self.mediatype = 'episode' if self.episode else 'movie' # params_get('mediatype')
+		if 'autoplay' in self.params: self.autoplay = params_get('autoplay', 'false') == 'true'
+		else: self.autoplay = settings.auto_play(self.mediatype) # (params_get('mediatype'))
 		self.active_internal_scrapers = settings.active_internal_scrapers()
 		self.active_external = 'external' in self.active_internal_scrapers
 		self.display_uncached_torrents = settings.display_uncached_torrents()
@@ -279,7 +279,7 @@ class Sources:
 	def display_results(self, results):
 		window_style = results_xml_style()
 		chosen_item = open_window(
-			('sources.windows_sources', 'SourceResults'),
+			('sources.window_sources', 'SourceResults'),
 			'sources_results.xml',
 			window_style=window_style,
 			window_id=results_xml_window_number(window_style),
@@ -296,7 +296,7 @@ class Sources:
 			return self.play_file(results, chosen_item)
 		if action == 'perform_full_search' and self.prescrape:
 			self.prescrape, self.clear_properties = False, False
-			return self.playback_prep()
+			return self.source_select()
 
 	def play_source(self, results):
 		if self.background: self.pov_background_url = self.play_file(results, autoplay=True, background=True)
@@ -315,7 +315,7 @@ class Sources:
 						line1 = item.get('scrape_provider'), item.get('cache_provider'), item.get('provider')
 						line2 = item.get('size_label', ''), item.get('extraInfo', '')
 						if source_index: line2 = ('[B]%02d[/B]' % (source_index + count), *line2)
-						line1 = ' | '.join(i for i in line1 if i and i != 'external').upper()
+						line1 = ' | '.join(i for i in line1 if i and not i == 'external').upper()
 						line2 = ' | '.join(i for i in line2 if i)
 						if self.progress_dialog: self.progress_dialog.update(format_line % (line1, line2, name), percent)
 						else: progressDialogBG.update(percent, name)
@@ -328,16 +328,16 @@ class Sources:
 		try:
 			self._kill_progress_dialog()
 			if autoplay:
+				source_index = 0
 				items = [i for i in results if not 'Uncached' in i.get('cache_provider', '')]
 				if self.filters_ignored: notification(32686)
 			else:
 				source_index = results.index(source) if source in results else 0
 				if source_index: items = [
-					i for i in results[source_index + 1:]
+					i for i in results[source_index:]
 					if not 'Uncached' in i.get('cache_provider', '')
 				][:40]
-				else: items = []
-				items.insert(0, source)
+				else: items = [source]
 			if background: return True if items else None
 			if self.full_screen:
 				self._make_progress_dialog()
@@ -500,12 +500,12 @@ class Sources:
 
 	@classmethod
 	def factory(cls, params):
-		if params.get('mediatype') == 'episode':
-			cls.nextep_callback(params)
-			while cls.nextep_params:
-				try: cls().playback_prep(cls.nextep_params.pop())
-				except: pass
-		else: cls().playback_prep(params)
+		try: int(params['episode'])
+		except: return cls().source_select(params)
+		cls.nextep_callback(params)
+		while cls.nextep_params:
+			try: cls().source_select(cls.nextep_params.pop())
+			except: pass
 
 	@classmethod
 	def nextep_callback(cls, params):
@@ -515,7 +515,7 @@ class Sources:
 	@classmethod
 	def background_prep(cls, params):
 		self = cls()
-		self.playback_prep({**params, 'background': 'true'})
+		self.source_select({**params, 'background': 'true'})
 		return self.pov_background_url
 
 class Manager:
