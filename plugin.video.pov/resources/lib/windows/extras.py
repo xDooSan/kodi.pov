@@ -3,7 +3,7 @@ from threading import Thread
 from datetime import datetime, timedelta
 from windows import BaseDialog, location, videoplayer
 from caches import watched_cache as ws
-from indexers import metadata, tmdb_api, imdb_api, mdblist_api
+from indexers import metadata, tmdb_api, imdb_api
 from menus import images, people
 from modules import settings, dialogs
 from modules.downloader import runner
@@ -25,9 +25,9 @@ tmdb_list_ids = (recommended_id, year_id, genres_id, networks_id, collection_id)
 imdb_list_ids = (reviews_id, trivia_id, blunders_id, parentsguide_id)
 art_ids = (posters_id, backdrops_id)
 parentsguide_dict = {
-	'sexual_content': (ls(32990), 'porn.png'), 'violence': (ls(32991), 'war.png'), 'profanity': (ls(32992), 'bad_language.png'),
-	'alcohol_drugs': (ls(32993), 'drugs_alcohol.png'), 'frightening_intense_scenes': (ls(32994), 'horror.png'),
-	'mild': ls(32996), 'moderate': ls(32997), 'severe': ls(32998)
+	'nudity': (ls(32990), 'porn.png'), 'violence': (ls(32991), 'war.png'), 'profanity': (ls(32992), 'bad_language.png'),
+	'alcohol': (ls(32993), 'drugs_alcohol.png'), 'frightening': (ls(32994), 'horror.png'),
+	'mild': ls(32996), 'moderate': ls(32997), 'severe': ls(32998), 'none': 'none'
 }
 
 class Extras(BaseDialog):
@@ -40,11 +40,12 @@ class Extras(BaseDialog):
 
 	def onInit(self):
 		for i in (
-			Thread(target=self.set_poster), Thread(target=self.make_cast), Thread(target=self.make_recommended),
-			Thread(target=self.make_reviews), Thread(target=self.make_trivia), Thread(target=self.make_blunders),
-			Thread(target=self.make_parentsguide), Thread(target=self.make_videos), Thread(target=self.make_year),
+			Thread(target=self.make_imdb_extended_info), Thread(target=self.set_poster),
+			Thread(target=self.make_cast), Thread(target=self.make_recommended),
+			Thread(target=self.make_videos), Thread(target=self.make_year),
 			Thread(target=self.make_genres), Thread(target=self.make_network),
-			Thread(target=self.make_artwork, args=('posters',)), Thread(target=self.make_artwork, args=('backdrops',))
+			Thread(target=self.make_artwork, args=('posters',)),
+			Thread(target=self.make_artwork, args=('backdrops',))
 		): i.start()
 		if self.mediatype == 'movie': Thread(target=self.make_collection).start()
 		else: self.setProperty('tikiskins.extras.make.collection', 'false')
@@ -220,20 +221,28 @@ class Extras(BaseDialog):
 			self.add_items(recommended_id, item_list)
 		except: pass
 
+	def make_imdb_extended_info(self):
+		try: self.imdb_extended_info = imdb_api.imdb_extended_info(self.imdb_id)
+		except: self.imdb_extended_info = {}
+		self.make_parentsguide()
+		self.make_reviews()
+		self.make_trivia()
+		self.make_blunders()
+
 	def make_reviews(self):
 		if not reviews_id in self.enabled_lists: return
 		def builder():
-			for count, item in enumerate(reviews, 1):
+			for count, item in enumerate(data, 1):
 				try:
-					provider = mdblist_api.review_provider_id.get(item['provider_id'], 'mdblist').upper()
+					provider = item['provider_id'].upper()
 					updated_at = item['updated_at'] or 'NA'
 					rating = item['rating'] or 'NA'
 					content = (
-						'[B][COLOR red][%s][/COLOR][CR][I]%02d. %s - %s - %s[/I][/B]\n\n%s'
-						% (spoiler, count, provider, rating, updated_at, item['content'])
+						'[B][COLOR red][%s][/COLOR][CR][I]%02d. %s - %s/10 - %s[/I][/B]\n\n%s'
+						% (spoiler, count, updated_at, rating, provider, item['content'])
 					) if 'spoiler' in item and item['spoiler'] else (
-						'[B][I]%02d. %s - %s - %s[/I][/B]\n\n%s'
-						% (count, provider, rating, updated_at, item['content'])
+						'[B][I]%02d. %s - %s/10 - %s[/I][/B]\n\n%s'
+						% (count, updated_at, rating, provider, item['content'])
 					)
 					listitem = self.make_listitem()
 					listitem.setProperty('tikiskins.extras.text', content)
@@ -241,15 +250,7 @@ class Extras(BaseDialog):
 				except: pass
 		try:
 			spoiler = ls(32985).upper()
-			data = mdblist_api.mdbl_media_info(self.imdb_id, self.mediatype)
-			if not data is None:
-				ratings, reviews = data['ratings'], data['reviews']
-				reviews.sort(key=lambda k: k['updated_at'] or '', reverse=True)
-				sources = ('imdb', 'metacritic', 'mdblist', 'tomatoes', 'trakt', 'tmdb')
-				if 'score' in data: ratings.append({'source': 'mdblist', 'value': data['score']})
-				ratings = ((i['source'], str(i['value'])) for i in ratings if i['source'] in sources and i['value'])
-				for k, v in ratings: self.setProperty('tikiskins.extras.rating.%s' % k, v)
-			else: reviews = [{'content': 'Authorize MDBList for Ratings & Reviews.', 'provider_id': '', 'updated_at': '', 'rating': ''}]
+			data = self.imdb_extended_info.get('reviews', [])
 			item_list = list(builder())
 			self.setProperty('tikiskins.extras.imdb_reviews.number', '(x%02d)' % len(item_list))
 			self.item_action_dict[reviews_id] = 'tikiskins.extras.text'
@@ -267,7 +268,7 @@ class Extras(BaseDialog):
 				except: pass
 		try:
 			trivia = ls(32984).upper()
-			data = []
+			data = self.imdb_extended_info.get('trivia', [])
 			item_list = list(builder())
 			self.setProperty('tikiskins.extras.imdb_trivia.number', '(x%02d)' % len(item_list))
 			self.item_action_dict[trivia_id] = 'tikiskins.extras.text'
@@ -285,7 +286,7 @@ class Extras(BaseDialog):
 				except: pass
 		try:
 			blunders = ls(32986).upper()
-			data = []
+			data = self.imdb_extended_info.get('blunders', [])
 			item_list = list(builder())
 			self.setProperty('tikiskins.extras.imdb_blunders.number', '(x%02d)' % len(item_list))
 			self.item_action_dict[blunders_id] = 'tikiskins.extras.text'
@@ -295,7 +296,7 @@ class Extras(BaseDialog):
 	def make_parentsguide(self):
 		if not parentsguide_id in self.enabled_lists: return
 		def builder():
-			for item in data.values():
+			for item in data:
 				try:
 					name, icon = parentsguide_dict[item['title']]
 					icon = '%s%s' % (icon_path, icon)
@@ -310,10 +311,7 @@ class Extras(BaseDialog):
 				except: pass
 		try:
 			icon_path = media_path()
-			data = {i['title']: i for i in mdblist_api.mdbl_parentsguide(self.imdb_id, self.mediatype)}
-			for i in imdb_api.imdb_parentsguide(self.imdb_id):
-				if i['title'] in data: data[i['title']]['listings'] += i['listings']
-				else: data[i['title']] = i
+			data = self.imdb_extended_info.get('parentsguide', [])
 			item_list = list(builder())
 			self.setProperty('tikiskins.extras.imdb_parentsguide.number', '(x%02d)' % len(item_list))
 			self.item_action_dict[parentsguide_id] = 'tikiskins.extras.listings'

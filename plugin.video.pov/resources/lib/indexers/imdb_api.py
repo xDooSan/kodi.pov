@@ -1,13 +1,20 @@
 import re
 import requests
+from html import unescape
 from caches.main_cache import cache_object
 # from modules.kodi_utils import logger
 
+graphql_url = 'https://api.graphql.imdb.com/'
 api_url = 'https://api.imdbapi.dev'
 base_url = 'https://www.imdb.com/%s'
 timeout = 10.0
 session = requests.Session()
-session.mount('https://', requests.adapters.HTTPAdapter(pool_maxsize=100))
+retry = requests.adapters.Retry(total=None, status=1, status_forcelist=(429, 502, 503, 504))
+session.mount('https://', requests.adapters.HTTPAdapter(pool_maxsize=100, max_retries=retry))
+
+def remove_html_tags(text):
+	clean = re.compile('<.*?>')
+	return re.sub(clean, '', text)
 
 def people_get_imdb_id(actor_name, actor_tmdbID=None):
 	name = actor_name.lower()
@@ -15,6 +22,12 @@ def people_get_imdb_id(actor_name, actor_tmdbID=None):
 	string = 'imdb_people_get_imdb_id_%s' % name
 	params = {'url': url, 'action': 'imdb_people_id', 'actor_tmdbID': actor_tmdbID, 'name': name}
 	return cache_object(get_imdb, string, params, False, 8736)[0]
+
+def imdb_extended_info(imdb_id):
+	url = imdb_id
+	string = 'imdb_extended_info_%s' % imdb_id
+	params = {'url': url, 'action': 'imdb_extended_info'}
+	return cache_object(get_imdb, string, params, False, 168)[0]
 
 def imdb_tagged_images(imdb_id):
 	url = '%s/names/%s/images' % (api_url, imdb_id)
@@ -67,7 +80,7 @@ def get_imdb(params):
 	elif action == 'imdb_parentsguide':
 		try:
 			append = imdb_list.append
-			result = requests.get(url, timeout=timeout)
+			result = session.get(url, timeout=timeout)
 			result = result.json()['parentsGuide']
 			for i in result:
 				try:
@@ -76,6 +89,50 @@ def get_imdb(params):
 					append({'title': i['category'].lower(), 'ranking': rank, 'listings': listings})
 				except: pass
 		except: pass
+	elif action == 'imdb_extended_info':
+		""" thanks https://github.com/tveronesi """
+		trivia, blunders, reviews, parentsguide = [], [], [], []
+		try:
+			headers = {'Content-Type': 'application/json', 'x-imdb-user-country': 'en'}
+			data = {'query': imdb_extended_query % url}
+			result = session.post(graphql_url, json=data, headers=headers, timeout=timeout)
+			if not result.ok: result.raise_for_status()
+			result = result.json().get('data', {}).get('title', {})
+			try: trivia.extend(
+				unescape(remove_html_tags(i['node']['displayableArticle']['body']['plaidHtml']))
+				for i in sorted(result['trivia']['edges'], key=lambda k: k['node']['interestScore']['usersVoted'], reverse=True)
+			)
+			except: pass
+			try: blunders.extend(
+				unescape(remove_html_tags(i['node']['displayableArticle']['body']['plaidHtml']))
+				for i in sorted(result['goofs']['edges'], key=lambda k: k['node']['interestScore']['usersVoted'], reverse=True)
+			)
+			except: pass
+			try: reviews.extend(
+				{'content': unescape(remove_html_tags(i['node']['text']['originalText']['plaidHtml'])),
+				 'summary': i['node']['summary']['originalText'],
+				 'provider_id': i['node']['author']['nickName'],
+				 'rating': i['node']['authorRating'],
+				 'updated_at': i['node']['submissionDate'],
+				 'spoiler': i['node']['spoiler']}
+				for i in sorted(result['reviews']['edges'], key=lambda k: k['node']['submissionDate'], reverse=True)
+			)
+			except: pass
+			try: parentsguide.extend(
+				{'title': i['category']['id'].lower(),
+				 'ranking': i['severity']['id'].replace('Votes', ''),
+				 'listings': [
+					unescape(remove_html_tags(x['node']['text']['plaidHtml']))
+					for x in i['guideItems']['edges']
+				 ]}
+				for i in result['parentsGuide']['categories']
+			)
+			except: pass
+		except requests.exceptions.RequestException as e:
+			from modules.kodi_utils import logger
+			logger('imdb error', str(e))
+		except: pass
+		imdb_list = {'trivia': trivia, 'blunders': blunders, 'reviews': reviews, 'parentsguide': parentsguide}
 	elif action == 'imdb_movie_year':
 		result = session.get(url, timeout=timeout).json()
 		try:
@@ -99,4 +156,83 @@ def clear_imdb_cache(silent=False):
 		for i in imdb_results: clear_property(i)
 		return True
 	except: return False
+
+imdb_extended_query = """\
+query {
+  title(id: "%s") {
+    id
+    titleText {
+      text
+    }
+    trivia(first: 20) {
+      edges {
+        node {
+          displayableArticle {
+            body {
+              plaidHtml
+            }
+          }
+          interestScore {
+            usersVoted
+          }
+        }
+      }
+    }
+    goofs(first: 20) {
+      edges {
+        node {
+          displayableArticle {
+            body {
+              plaidHtml
+            }
+          }
+          interestScore {
+            usersVoted
+          }
+        }
+      }
+    }
+    reviews(first: 20) {
+      edges {
+        node {
+          spoiler
+          author {
+            nickName
+          }
+          authorRating
+          summary {
+            originalText
+          }
+          text {
+            originalText {
+              plaidHtml
+            }
+          }
+          submissionDate
+        }
+      }
+    }
+    parentsGuide {
+      categories {
+        category {
+          id
+        }
+        guideItems(first: 10) {
+          edges {
+            node {
+              isSpoiler
+              text {
+                plaidHtml
+              }
+            }
+          }
+        }
+        severity {
+          id
+          votedFor
+        }
+      }
+    }
+  }
+}"""
 
