@@ -160,7 +160,7 @@ class Menu(Movies):
 	tmdb_main = ('tmdb_movies_popular', 'tmdb_movies_latest_releases', 'tmdb_movies_premieres', 'tmdb_movies_upcoming', 'tmdb_movies_blockbusters', 'tmdb_moviesanime_popular', 'tmdb_moviesanime_latest_releases')
 	trakt_main = ('trakt_movies_trending', 'trakt_movies_trending_recent', 'trakt_movies_most_watched', 'trakt_moviesanime_trending', 'trakt_moviesanime_most_watched')
 	tmdb_personal = ('tmdb_watchlist', 'tmdb_favorites', 'tmdb_recommendations')
-	trakt_personal = ('trakt_collection', 'trakt_watchlist', 'trakt_favorites', 'trakt_collection_lists')
+	trakt_personal = ('trakt_collection', 'trakt_watchlist', 'trakt_favorites', 'trakt_collection_lists', 'trakt_watchlist_lists')
 	mdblist_personal = ('mdblist_collection', 'mdblist_watchlist')
 	similar = ('tmdb_movies_similar', 'tmdb_movies_recommendations')
 

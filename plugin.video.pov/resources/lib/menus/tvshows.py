@@ -169,7 +169,7 @@ class Menu(TVShows):
 	tmdb_main = ('tmdb_tv_popular', 'tmdb_tv_premieres', 'tmdb_tv_upcoming', 'tmdb_tvanime_popular', 'tmdb_tvanime_premieres')
 	trakt_main = ('trakt_tv_trending', 'trakt_tv_trending_recent', 'trakt_tv_most_watched', 'trakt_tvanime_trending', 'trakt_tvanime_most_watched')
 	tmdb_personal = ('tmdb_watchlist', 'tmdb_favorites', 'tmdb_recommendations')
-	trakt_personal = ('trakt_collection', 'trakt_watchlist', 'trakt_favorites', 'trakt_droplist', 'trakt_collection_lists')
+	trakt_personal = ('trakt_collection', 'trakt_watchlist', 'trakt_favorites', 'trakt_droplist', 'trakt_collection_lists', 'trakt_watchlist_lists')
 	mdblist_personal = ('mdblist_collection', 'mdblist_watchlist', 'mdblist_droplist')
 	similar = ('tmdb_tv_similar', 'tmdb_tv_recommendations')
 

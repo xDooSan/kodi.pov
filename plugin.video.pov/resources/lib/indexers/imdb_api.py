@@ -13,8 +13,9 @@ retry = requests.adapters.Retry(total=None, status=1, status_forcelist=(429, 502
 session.mount('https://', requests.adapters.HTTPAdapter(pool_maxsize=100, max_retries=retry))
 
 def remove_html_tags(text):
-	clean = re.compile('<.*?>')
-	return re.sub(clean, '', text)
+	lines = re.compile(r'(<br>|<br\s?/>)')
+	clean = re.compile(r'<.*?>')
+	return re.sub(clean, '', re.sub(lines, '\n', text))
 
 def people_get_imdb_id(actor_name, actor_tmdbID=None):
 	name = actor_name.lower()
@@ -119,12 +120,9 @@ def get_imdb(params):
 			)
 			except: pass
 			try: parentsguide.extend(
-				{'title': i['category']['id'].lower(),
-				 'ranking': i['severity']['id'].replace('Votes', ''),
-				 'listings': [
-					unescape(remove_html_tags(x['node']['text']['plaidHtml']))
-					for x in i['guideItems']['edges']
-				 ]}
+				{'listings': [unescape(remove_html_tags(x['node']['text']['plaidHtml'])) for x in i['guideItems']['edges']],
+				 'title': i['category']['id'].lower(),
+				 'ranking': i['severity']['id'].replace('Votes', '')}
 				for i in result['parentsGuide']['categories']
 			)
 			except: pass

@@ -1,6 +1,8 @@
   removal pending: download, tmdblist, sync_kodi_library_watchstatus
 
   [COLOR dodgerblue][B]Version 6.03[/B][/COLOR]
+- Added Recently Added/Random under Trakt Watchlist menu.
+- Fix for TMDB Lists Favorites, MDBList account info.
 - Extras updated thanks to pypi imdbinfo.
 - Removed easydebrid, fanarttv, folders scraper.
 - Added Blocks/Rounded-Blocks themes to RPDB options.

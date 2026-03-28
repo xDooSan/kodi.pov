@@ -552,34 +552,6 @@ def tmdb_clean_watchlist(silent=False):
 		return '%d items removed.' % len(items)
 	except: pass
 
-def import_trakt_watchlist(*args):
-	if not kodi_utils.confirm_dialog(): return
-	def _process(group, count):
-		add_to_watchlist_favorites(group, 'watchlist')
-		progressBG.update(int(count / len_items * 100), send_str)
-	from indexers.trakt_api import trakt_fetch_collection_watchlist
-	send_str = 'Sending items to TMDB Watchlist...'
-	try:
-		progressBG = kodi_utils.progressDialogBG
-		progressBG.create(send_str, list_heading)
-		items = []
-		for i in (('movie', 'movie'), ('show', 'tv')):
-			try: items += [
-				{'collected_at': item['collected_at'], 'watchlist': True, 'media_type': i[1], 'media_id': item['media_ids']['tmdb']}
-				for item in trakt_fetch_collection_watchlist('watchlist', i[0]) if 'tmdb' in item['media_ids']
-			]
-			except: pass
-		if not items: return kodi_utils.notification(32760)
-		try: items.sort(key=lambda k: k['collected_at'], reverse=False)
-		except: pass
-		len_items = len(items)
-		threads = TaskPool(40).tasks(_process, [(i[1], i[0]) for i in enumerate(items, 1)], Thread)
-		[i.join(3/4) for i in threads]
-		clear_tmdbl_cache()
-		kodi_utils.notification('List sent to TMDB')
-	except: kodi_utils.notification(32574)
-	finally: progressBG.close()
-
 def import_trakt_list(params):
 	from indexers.trakt_api import get_trakt_list_contents
 	send_str = 'Sending items to TMDB Watchlist...'

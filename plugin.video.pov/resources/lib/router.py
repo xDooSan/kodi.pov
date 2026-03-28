@@ -158,7 +158,11 @@ class Router:
 				mark_as_watched_unwatched_movie(params)
 			elif mode == 'watched_unwatched_erase_bookmark':
 				from caches.watched_cache import erase_bookmark
-				erase_bookmark(params_get('mediatype'), params_get('tmdb_id'), params_get('season', ''), params_get('episode', ''), params_get('refresh', 'false'))
+				erase_bookmark(
+					params_get('mediatype'), params_get('tmdb_id'),
+					params_get('season', ''), params_get('episode', ''),
+					params_get('refresh', 'false')
+				)
 		elif 'toggle' in mode:
 			if mode == 'toggle_provider':
 				from modules.utils import toggle_provider
@@ -223,7 +227,10 @@ class Router:
 			Images().run(params)
 		elif '_text' in mode:
 			from modules.kodi_utils import show_text
-			show_text(params_get('heading'), params_get('text'), params_get('file'), params_get('font_size', 'small'), params_get('kodi_log', 'false') == 'true')
+			show_text(
+				params_get('heading'), params_get('text'), params_get('file'),
+				params_get('font_size', 'small'), params_get('kodi_log', 'false') == 'true'
+			)
 		elif '_view' in mode:
 			if mode == 'choose_view':
 				from modules.kodi_utils import choose_view

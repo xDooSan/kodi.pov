@@ -174,14 +174,10 @@ def hide_unhide_trakt_items(action, mediatype, media_id, list_type):
 	trakt_sync_activities()
 	kodi_utils.container_refresh()
 
-def trakt_collection_lists(mediatype, param1, param2):
+def trakt_collection_watchlist_lists(mediatype, param1, param2):
 	# param1 = the type of list to be returned (from 'new_page' param), param2 is currently not used
 	limit = 20
-#	string_insert = 'movie' if mediatype in ('movie', 'movies') else 'tvshow'
-#	window_property_name = 'pov_trakt_collection_%s' % string_insert
-#	try: data = json.loads(kodi_utils.get_property(window_property_name))
-#	except: data = trakt_fetch_collection_watchlist('collection', mediatype)
-	data = trakt_fetch_collection_watchlist('collection', mediatype)
+	data = trakt_fetch_collection_watchlist(param2, mediatype)
 	if param1 == 'recent':
 		data.sort(key=lambda k: k['collected_at'], reverse=True)
 	elif param1 == 'random':
@@ -189,6 +185,12 @@ def trakt_collection_lists(mediatype, param1, param2):
 		random.shuffle(data)
 	data = data[:limit]
 	return data, 1
+
+def trakt_collection_lists(mediatype, param1, param2):
+	return trakt_collection_watchlist_lists(mediatype, param1, 'collection')
+
+def trakt_watchlist_lists(mediatype, param1, param2):
+	return trakt_collection_watchlist_lists(mediatype, param1, 'watchlist')
 
 def trakt_collection(mediatype, page_no, letter):
 	string_insert = 'movie' if mediatype in ('movie', 'movies') else 'tvshow'
@@ -530,7 +532,7 @@ def trakt_my_anime_calendar(current_date):
 		data = [i for n, i in enumerate(data) if i not in data[n + 1:]] # remove duplicates
 		return data
 	start, finish = trakt_calendar_days(False, current_date)
-	string = 'trakt_my_anime_calendar_%s_%s' % (start, finish)
+	string = 'trakt_get_my_calendar_anime_%s_%s' % (start, finish)
 	url = {'path': 'calendars/my/shows/%s/%s', 'path_insert': (start, finish), 'params': {'genres': 'anime'}, 'with_auth': True, 'pagination': False}
 	return trakt_cache.cache_trakt_object(_process, string, url)
 

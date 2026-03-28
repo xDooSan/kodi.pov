@@ -1,4 +1,4 @@
-<addon id="plugin.video.pov" version="6.03.22.1" name="POV" provider-name="xDooSan">
+<addon id="plugin.video.pov" version="6.03.23.3" name="POV" provider-name="xDooSan">
 	<requires>
 		<import addon="xbmc.python" version="3.0.0" />
 		<import addon="script.module.requests" />

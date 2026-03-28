@@ -72,20 +72,16 @@ def trakt_manager_choice(params):
 		 '%s items' % item['item_count'])
 		for item in trakt_api.trakt_get_lists('my_lists')
 	]
-	choices += [
-		('collection', '[I]%s[/I]' % ls(32499), ''),
-		('favorites', '[I]%s[/I]' % 'Favorites', ''),
-		('watchlist', '[I]%s[/I]' % ls(32500), '')
-	]
-	if params['mediatype'] == 'tvshow': choices += [('drop', 'Toggle Dropped', '')]
+	choices += [(i.lower(), '[I]%s[/I]' % i, '') for i in (ls(32499), ls(32453), ls(32500))]
+	if params['mediatype'] == 'tvshow': choices += [('dropped', 'Toggle Dropped', '')]
 	list_items = [{'line1': item[1], 'line2': item[2], 'icon': icon} for item in choices]
 	kwargs = {'items': json.dumps(list_items), 'heading': heading, 'multi_line': 'true'}
 	choice = select_dialog([(i[0], i[1]) for i in choices], **kwargs)
 	if choice is None: return
 	add_str, rem_str = 'Add to %s?' % choice[1], 'Remove from %s?' % choice[1]
-	if 'drop' in choice[0]:
+	if 'dropped' in choice[0]:
 		return trakt_api.hide_unhide_trakt_items(params['tmdb_id'], 'shows', params['imdb_id'], 'dropped')
-	if 'watchlist' in choice[0] or 'collection' in choice[0] or 'favorites' in choice[0]:
+	if 'collection' in choice[0] or 'favorites' in choice[0] or 'watchlist' in choice[0]:
 		list_items = trakt_api.trakt_fetch_collection_watchlist(choice[0], params['mediatype'])
 		action = False if int(params['tmdb_id']) in {i['media_ids']['tmdb'] for i in list_items} else True
 		data = [{'ids': {'tmdb': int(params['tmdb_id'])}}]
@@ -115,14 +111,14 @@ def mdbl_manager_choice(params):
 		(str(item['id']), item['name'], '%s items' % item['items'])
 		for item in mdblist_api.mdbl_get_lists('my_lists') if not item['dynamic']
 	]
-	choices += [(i, '[I]%s[/I]' % i.capitalize(), '') for i in ('collection', 'watchlist')]
-	choices += [('drop', '%s %s...' % ('Toggle', 'Dropped'), '')] if params['mediatype'] == 'tvshow' else []
+	choices += [(i.lower(), '[I]%s[/I]' % i, '') for i in (ls(32499), ls(32500))]
+	if params['mediatype'] == 'tvshow': choices += [('dropped', 'Toggle Dropped', '')]
 	list_items = [{'line1': item[1], 'line2': item[2],'icon': icon} for item in choices]
 	kwargs = {'items': json.dumps(list_items), 'heading': heading, 'multi_line': 'true'}
 	choice = select_dialog([(i[0], i[1]) for i in choices], **kwargs)
 	if choice is None: return
 	add_str, rem_str = 'Add to %s?' % choice[1], 'Remove from %s?' % choice[1]
-	if 'drop' in choice[0]:
+	if 'dropped' in choice[0]:
 		return mdblist_api.hide_unhide_mdbl_items(params['tmdb_id'], 'shows', params['imdb_id'], 'dropped')
 	if 'collection' in choice[0]:
 		list_items = mdblist_api.mdblist_collection('all', None, '')
@@ -156,7 +152,7 @@ def tmdb_manager_choice(params):
 		for item in tmdb_api.all_user_lists()
 	]
 	if not list_name:
-		choices += [(i, '[I]%s[/I]' % i.capitalize(), '', icon) for i in ('favorites', 'watchlist')]
+		choices += [(i.lower(), '[I]%s[/I]' % i, '', icon) for i in (ls(32453), ls(32500))]
 	choices += [('clear', 'Clear list cache', '', icon), ('new', 'Create a new list', list_name, icon)]
 	if not choices: return
 	list_items = [{'line1': item[1], 'line2': item[2], 'icon': item[3]} for item in choices]
@@ -178,14 +174,15 @@ def tmdb_manager_choice(params):
 		return function({**params, 'list_id': choice[0]})
 	add_str, rem_str = 'Add to %s?' % choice[1], 'Remove from %s?' % choice[1]
 	params['mediatype'] = 'tv' if params['mediatype'] == 'tvshow' else 'movie'
-	if 'watchlist' in choice[0] or 'favorites' in choice[0]:
+	if 'favorites' in choice[0] or 'watchlist' in choice[0]:
 		if 'watchlist' == choice[0]:
 			list_items = tmdb_api.all_list_items(tmdb_api.watchlist, params['mediatype'])
 		else: list_items = tmdb_api.all_list_items(tmdb_api.favorites, params['mediatype'])
+		list_type = 'favorite' if choice[0] == 'favorites' else 'watchlist'
 		action = False if int(params['tmdb_id']) in {i['id'] for i in list_items} else True
-		data = {'media_type': params['mediatype'], 'media_id': params['tmdb_id'], choice[0]: action}
+		data = {'media_type': params['mediatype'], 'media_id': params['tmdb_id'], list_type: action}
 		if not action and not confirm_dialog(text=rem_str, top_space=True): return
-		if tmdb_api.add_to_watchlist_favorites(data, choice[0])['success']:
+		if tmdb_api.add_to_watchlist_favorites(data, list_type)['success']:
 			tmdb_api.clear_tmdbl_cache()
 			if not action: container_refresh()
 			return notification(32576)
