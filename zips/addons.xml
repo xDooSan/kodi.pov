@@ -1,10 +1,10 @@
 <?xml version='1.0' encoding='utf-8'?>
-<addons><addon id="plugin.video.pov" version="6.03.23.3" name="POV" provider-name="xDooSan">
+<addons><addon id="plugin.video.pov" version="6.04.01.01" name="POV" provider-name="xDooSan">
 	<requires>
 		<import addon="xbmc.python" version="3.0.0" />
 		<import addon="script.module.requests" />
 	</requires>
-	<extension point="xbmc.python.pluginsource" library="resources/lib/router.py">
+	<extension point="xbmc.python.pluginsource" library="resources/lib/entry.py">
 		<provides>video</provides>
 	</extension>
 	<extension point="xbmc.service" library="resources/lib/service.py" />

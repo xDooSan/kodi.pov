@@ -15,9 +15,9 @@ class source:
 	hasEpisodes = True
 	def __init__(self):
 		self.language = ['en']
-		self.base_link = "https://meteorfortheweebs.midnightignite.me"
-		self.movieSearch_link = '/stream/movie/%s.json'
-		self.tvSearch_link = '/stream/series/%s:%s:%s.json'
+		self.base_link = "https://mediafusionfortheweebs.midnightignite.me"
+		self.movieSearch_link = '/%s/stream/movie/%s.json'
+		self.tvSearch_link = '/%s/stream/series/%s:%s:%s.json'
 		self.min_seeders = 0
 
 	def sources(self, data, hostDict):
@@ -36,10 +36,10 @@ class source:
 				season = data['season']
 				episode = data['episode']
 				hdlr = 'S%02dE%02d' % (int(season), int(episode))
-				url = '%s%s' % (self.base_link, self.tvSearch_link % (imdb, season, episode))
+				url = '%s%s' % (self.base_link, self.tvSearch_link % (self._token(), imdb, season, episode))
 			else:
 				hdlr = year
-				url = '%s%s' % (self.base_link, self.movieSearch_link % imdb)
+				url = '%s%s' % (self.base_link, self.movieSearch_link % (self._token(), imdb))
 			# log_utils.log('url = %s' % url)
 			if 'timeout' in data: self.timeout = int(data['timeout'])
 			results = requests.get(url, timeout=self.timeout)
@@ -48,7 +48,7 @@ class source:
 			undesirables = source_utils.get_undesirables()
 			check_foreign_audio = source_utils.check_foreign_audio()
 		except:
-			source_utils.scraper_error('METEOR')
+			source_utils.scraper_error('MEDIAFUSION')
 			return sources
 
 		for file in files:
@@ -58,7 +58,7 @@ class source:
 				file_title = file['description'].split('\n')
 				file_info = [x for x in file_title if _INFO.match(x)][0]
 
-				name = source_utils.clean_name(file_title[0])
+				name = source_utils.clean_name(file['behaviorHints']['filename'])
 
 				if not source_utils.check_title(title, aliases, name, hdlr, year):
 					if total_seasons is None: continue
@@ -89,14 +89,26 @@ class source:
 
 				item = {
 					'source': 'torrent', 'language': 'en', 'direct': False, 'debridonly': True,
-					'provider': 'meteor', 'hash': hash, 'url': url, 'name': name, 'name_info': name_info,
+					'provider': 'mediafusion', 'hash': hash, 'url': url, 'name': name, 'name_info': name_info,
 					'quality': quality, 'info': info, 'size': dsize, 'seeders': seeders
 				}
-				if package: item['package'] = package
+				if package: item.update({'package': package, 'true_size': True})
 				if package == 'show': item.update({'last_season': last_season})
 				if episode_start: item.update({'episode_start': episode_start, 'episode_end': episode_end}) # for partial season packs
 				sources_append(item)
 			except:
-				source_utils.scraper_error('METEOR')
+				source_utils.scraper_error('MEDIAFUSION')
 		return sources
+
+	def _token(self):
+		return (
+			'D-BGDTpQROy1Roy9aa15SRYsSgbPEJbdWnJkeiVoGT6LmPJ65Irqe7C5rYgtRWeOZxH8SOO7NFpD'
+			'Mh19hsqS4plk1R273gU3uGWg0Qxvyh-D8-ieWTC33P34NccWnZsz-Y_ZpJlBcvr8FItcbfuFttRk'
+			'1Irj_-1JGotw-9savyyC2muo6zuLy68klyiV70zr65euA8VgLi7MlAdU5_LF1UHOy6dutbvYvfVI'
+			'-7gt3CHhY7DP7IiLb5cfB-mNnmBdP2J3jwMG3x5ac-Rx0Ao-ltMcjZMZum8zVWg6VwkQdqxokEX2'
+			'D1nSMPLWsnj-2UwFO6ov-sD1IeFg8G2loXRbcQk7x91YMNr_Rvj2-11_OwbZutjCOdVs2K52NCbu'
+			'ENRjEfS8dn_8XZtBEaJL7ZEEkW7wT_XbzPQ-pWqPPAwh_1jN4xkzE0isa1K7tDGfiRWOtqeH3JED'
+			'txyS9-849sVncm4i-TozXOpyVsqNHtxUyWChYZB3WXIymlNCmmer1halPECScs9TH1XywdX2m2SR'
+			'9u7jra2SKkd6wDacHR639MQag'
+		)
 
