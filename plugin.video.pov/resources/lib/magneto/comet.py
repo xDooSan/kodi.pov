@@ -3,7 +3,7 @@
 	Fenomscrapers Project
 """
 
-import requests
+import re, requests
 from fenom import source_utils
 from fenom.control import setting as getSetting
 
@@ -17,11 +17,12 @@ class source:
 	def __init__(self):
 		self.language = ['en']
 		self.base_link = (
-			"https://aiostreams.stremio.ru",
-			"https://aiostreamsfortheweebsstable.midnightignite.me"
-		)[int(getSetting('aiostreams.url', '0'))]
-		self.movieSearch_link = '/api/v1/search'
-		self.tvSearch_link = '/api/v1/search'
+			"https://comet.stremio.ru",
+			"https://comet.feels.legal",
+			"https://cometfortheweebs.midnightignite.me"
+		)[int(getSetting('comet.url', '0'))]
+		self.movieSearch_link = '/stream/movie/%s.json'
+		self.tvSearch_link = '/stream/series/%s:%s:%s.json'
 		self.min_seeders = 0
 
 	def sources(self, data, hostDict):
@@ -40,30 +41,29 @@ class source:
 				season = data['season']
 				episode = data['episode']
 				hdlr = 'S%02dE%02d' % (int(season), int(episode))
-				url = '%s%s' % (self.base_link, self.tvSearch_link)
-				params = {'type': 'series', 'id': '%s:%s:%s' % (imdb, season, episode)}
+				url = '%s%s' % (self.base_link, self.tvSearch_link % (imdb, season, episode))
 			else:
 				hdlr = year
-				url = '%s%s' % (self.base_link, self.movieSearch_link)
-				params = {'type': 'movie', 'id': '%s' % imdb}
+				url = '%s%s' % (self.base_link, self.movieSearch_link % imdb)
 			# log_utils.log('url = %s' % url)
 			if 'timeout' in data: self.timeout = int(data['timeout'])
-			results = requests.get(url, params=params, headers=self._headers(), timeout=self.timeout)
-			files = results.json()['data']['results']
+			results = requests.get(url, timeout=self.timeout)
+			files = results.json()['streams']
+			_INFO = re.compile(r'💾.*')
 			undesirables = source_utils.get_undesirables()
 			check_foreign_audio = source_utils.check_foreign_audio()
 		except:
-			source_utils.scraper_error('AIOSTREAMS')
+			source_utils.scraper_error('COMET')
 			return sources
 
 		for file in files:
 			try:
 				package, episode_start = None, 0
 				hash = file['infoHash']
-				file_title = (file['folderName'] or file['filename']).replace('┈➤', '\n').split('\n')
+				file_title = file['description'].split('\n')
+				file_info = [x for x in file_title if _INFO.search(x)][0]
 
 				name = source_utils.clean_name(file_title[0])
-				if not any(x in name.lower() for x in ['vf2', 'french', 'vff', 'vfq', 'truefrench']): continue
 
 				if not source_utils.check_title(title, aliases, name, hdlr, year):
 					if total_seasons is None: continue
@@ -80,50 +80,28 @@ class source:
 				url = 'magnet:?xt=urn:btih:%s&dn=%s' % (hash, name)
 
 				try:
-					seeders = file['seeders']
+					seeders = int(re.search(r'👤\s*(\d+)', file_info).group(1))
 					if self.min_seeders > seeders: continue
 				except: seeders = 0
 
 				quality, info = source_utils.get_release_quality(name_info, url)
 				try:
-					size = float(file['size'])
-					dsize, isize = source_utils.convert_size(size)
+					size = re.search(r'((?:\d+\,\d+\.\d+|\d+\.\d+|\d+\,\d+|\d+)\s*(?:GB|GiB|Gb|MB|MiB|Mb))', file_info).group(0)
+					dsize, isize = source_utils._size(size)
 					info.insert(0, isize)
 				except: dsize = 0
 				info = ' | '.join(info)
 
 				item = {
 					'source': 'torrent', 'language': 'en', 'direct': False, 'debridonly': True,
-					'provider': 'aiostreams', 'hash': hash, 'url': url, 'name': name, 'name_info': name_info,
+					'provider': 'comet', 'hash': hash, 'url': url, 'name': name, 'name_info': name_info,
 					'quality': quality, 'info': info, 'size': dsize, 'seeders': seeders
 				}
-				if package: item['package'] = package
+				if package: item.update({'package': package, 'true_size': True})
 				if package == 'show': item.update({'last_season': last_season})
 				if episode_start: item.update({'episode_start': episode_start, 'episode_end': episode_end}) # for partial season packs
 				sources_append(item)
 			except:
-				source_utils.scraper_error('AIOSTREAMS')
+				source_utils.scraper_error('COMET')
 		return sources
-
-	def _headers(self):
-		return {'x-aiostreams-user-data': (
-			'ewogICJwcmVzZXRzIjogWwogICAgewogICAgICAidHlwZSI6ICJjb21ldCIsCiAgICAgICJpbnN0YW5j'
-			'ZUlkIjogImY3YiIsCiAgICAgICJlbmFibGVkIjogdHJ1ZSwKICAgICAgIm9wdGlvbnMiOiB7CiAgICAg'
-			'ICAgIm5hbWUiOiAiQ29tZXQiLAogICAgICAgICJ0aW1lb3V0IjogNjUwMCwKICAgICAgICAicmVzb3Vy'
-			'Y2VzIjogWyJzdHJlYW0iXSwKICAgICAgICAiaW5jbHVkZVAyUCI6IHRydWUsCiAgICAgICAgInJlbW92'
-			'ZVRyYXNoIjogZmFsc2UKICAgICAgfQogICAgfSwKICAgIHsKICAgICAgInR5cGUiOiAibWVkaWFmdXNp'
-			'b24iLAogICAgICAiaW5zdGFuY2VJZCI6ICI0NTAiLAogICAgICAiZW5hYmxlZCI6IHRydWUsCiAgICAg'
-			'ICJvcHRpb25zIjogewogICAgICAgICJuYW1lIjogIk1lZGlhRnVzaW9uIiwKICAgICAgICAidGltZW91'
-			'dCI6IDY1MDAsCiAgICAgICAgInJlc291cmNlcyI6IFsic3RyZWFtIl0sCiAgICAgICAgInVzZUNhY2hl'
-			'ZFJlc3VsdHNPbmx5IjogdHJ1ZSwKICAgICAgICAiZW5hYmxlV2F0Y2hsaXN0Q2F0YWxvZ3MiOiBmYWxz'
-			'ZSwKICAgICAgICAiZG93bmxvYWRWaWFCcm93c2VyIjogZmFsc2UsCiAgICAgICAgImNvbnRyaWJ1dG9y'
-			'U3RyZWFtcyI6IGZhbHNlLAogICAgICAgICJjZXJ0aWZpY2F0aW9uTGV2ZWxzRmlsdGVyIjogW10sCiAg'
-			'ICAgICAgIm51ZGl0eUZpbHRlciI6IFtdCiAgICAgIH0KICAgIH0KICBdLAogICJmb3JtYXR0ZXIiOiB7'
-			'CiAgICAiaWQiOiAidG9ycmVudGlvIiwKICAgICJkZWZpbml0aW9uIjogeyJuYW1lIjogIiIsICJkZXNj'
-			'cmlwdGlvbiI6ICIifQogIH0sCiAgInNvcnRDcml0ZXJpYSI6IHsiZ2xvYmFsIjogW119LAogICJkZWR1'
-			'cGxpY2F0b3IiOiB7CiAgICAiZW5hYmxlZCI6IGZhbHNlLAogICAgImtleXMiOiBbImZpbGVuYW1lIiwg'
-			'ImluZm9IYXNoIl0sCiAgICAibXVsdGlHcm91cEJlaGF2aW91ciI6ICJhZ2dyZXNzaXZlIiwKICAgICJj'
-			'YWNoZWQiOiAic2luZ2xlX3Jlc3VsdCIsCiAgICAidW5jYWNoZWQiOiAicGVyX3NlcnZpY2UiLAogICAg'
-			'InAycCI6ICJzaW5nbGVfcmVzdWx0IiwKICAgICJleGNsdWRlQWRkb25zIjogW10KICB9Cn0='
-		)}
 

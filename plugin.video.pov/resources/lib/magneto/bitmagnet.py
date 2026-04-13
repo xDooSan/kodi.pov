@@ -63,6 +63,7 @@ class source:
 				hash = attr_dict['infohash']
 
 				name = source_utils.clean_name(attr_dict['title'])
+				if not any(x in name.lower() for x in ['vf2', 'french', 'vff', 'vfq', 'truefrench']): continue
 
 				if not source_utils.check_title(title, aliases, name, hdlr, year):
 					if total_seasons is None: continue

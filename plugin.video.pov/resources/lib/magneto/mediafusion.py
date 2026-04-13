@@ -56,9 +56,10 @@ class source:
 				package, episode_start = None, 0
 				hash = file['infoHash']
 				file_title = file['description'].split('\n')
-				file_info = [x for x in file_title if _INFO.match(x)][0]
+				file_info = [x for x in file_title if _INFO.search(x)][0]
 
 				name = source_utils.clean_name(file['behaviorHints']['filename'])
+				if not any(x in name.lower() for x in ['vf2', 'french', 'vff', 'vfq', 'truefrench']): continue
 
 				if not source_utils.check_title(title, aliases, name, hdlr, year):
 					if total_seasons is None: continue
