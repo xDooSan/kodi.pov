@@ -5,7 +5,7 @@ from modules.utils import chunks
 timeout = 20
 SELECT = 'SELECT id FROM trakt_data'
 DELETE = 'DELETE FROM trakt_data WHERE id = ?'
-DELETE_LIKE = 'DELETE FROM trakt_data WHERE id LIKE %s'
+DELETE_LIKE = 'DELETE FROM trakt_data WHERE id LIKE ?'
 WATCHED_INSERT = 'INSERT OR IGNORE INTO watched_status VALUES (?, ?, ?, ?, ?, ?)'
 WATCHED_DELETE = 'DELETE FROM watched_status WHERE db_type = ?'
 PROGRESS_INSERT = 'INSERT OR IGNORE INTO progress VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
@@ -85,8 +85,7 @@ def clear_trakt_hidden_data(list_type):
 	except: pass
 
 def clear_trakt_collection_watchlist_data(list_type, mediatype):
-	if mediatype == 'movies': mediatype = 'movie'
-	if mediatype in ('tvshows', 'shows'): mediatype = 'tvshow'
+	mediatype = 'movie' if mediatype in ('movie', 'movies') else 'tvshow'
 	string = 'trakt_%s_%s' % (list_type, mediatype)
 	try:
 		dbcur = TraktCache().dbcur
@@ -97,7 +96,7 @@ def clear_trakt_list_contents_data(list_type):
 	string = 'trakt_list_contents_' + list_type + '_%'
 	try:
 		dbcur = TraktCache().dbcur
-		dbcur.execute(DELETE_LIKE % string)
+		dbcur.execute(DELETE_LIKE, (string,))
 	except: pass
 
 def clear_trakt_list_data(list_type):
@@ -110,7 +109,7 @@ def clear_trakt_list_data(list_type):
 def clear_trakt_calendar():
 	try:
 		dbcur = TraktCache().dbcur
-		dbcur.execute(DELETE_LIKE % 'trakt_get_my_calendar_%')
+		dbcur.execute(DELETE_LIKE, ('trakt_get_my_calendar_%',))
 	except: return
 
 def clear_trakt_recommendations(mediatype):

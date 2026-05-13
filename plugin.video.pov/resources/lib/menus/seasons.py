@@ -10,7 +10,6 @@ tv_meta_function, season_meta_function, default_duration = tvshow_meta, season_e
 KODI_VERSION, make_cast_list = kodi_utils.get_kodi_version(), kodi_utils.make_cast_list
 string, ls, build_url = str, kodi_utils.local_string, kodi_utils.build_url
 get_art_provider, show_specials = settings.get_art_provider, settings.show_specials
-adjust_premiered_date_function, get_datetime_function = adjust_premiered_date, get_datetime
 run_plugin, container_refresh, container_update = 'RunPlugin(%s)', 'Container.Refresh(%s)', 'Container.Update(%s)'
 fanart_empty = kodi_utils.get_addoninfo('fanart')
 poster_empty = kodi_utils.media_path('box_office.png')
@@ -22,7 +21,7 @@ class Seasons:
 		self.params = params
 		self.items = []
 		self.append = self.items.append
-		self.current_date = get_datetime_function()
+		self.current_date = get_datetime()
 		self.meta_user_info = settings.metadata_user_info()
 		self.watched_indicators = settings.watched_indicators()
 		self.watched_title = settings.watched_title(self.watched_indicators)
@@ -39,7 +38,7 @@ class Seasons:
 			season_data = meta_get('season_data')
 			if season_data:
 				if 'season' in params: season_data = [i for i in season_data if i['season_number'] == params['season']]
-				if not show_specials(): season_data = [i for i in season_data if not i['season_number'] == 0]
+				if not show_specials(): season_data = [i for i in season_data if i['season_number'] != 0]
 				season_data.sort(key=lambda k: k['season_number'])
 			else: season_data = []
 			running_ep_count = total_aired_eps
@@ -53,7 +52,7 @@ class Seasons:
 					if poster_path: poster = tmdb_image_base % (self.image_resolution['poster'], poster_path)
 					else: poster = show_poster
 					if season_number == total_seasons:
-						episode_airs = adjust_premiered_date_function(item_get('air_date'), 0)[0]
+						episode_airs = adjust_premiered_date(item_get('air_date'), 0)[0]
 						unaired = True if not episode_airs or self.current_date < episode_airs else False
 					elif episode_count == 0: unaired = True
 					else: unaired = False
@@ -63,15 +62,27 @@ class Seasons:
 					elif season_number != 0:
 						running_ep_count -= episode_count
 						if running_ep_count < 0: episode_count = running_ep_count + episode_count
-					display = name if use_season_title and name else ' '.join([season_str, string(season_number)])
+					display = name if use_season_title and name else '%s %s' % (season_str, string(season_number))
 					if unaired: display = '[I]%s[/I]' % (unaired_label % display)
 					if 'season' in params: display = '%s: %s' % (show_title, display)
-					playcount, overlay, watched, unwatched = get_watched_status_season(self.watched_info, string(tmdb_id), season_number, episode_count)
+					playcount, overlay, watched, unwatched = get_watched_status_season(
+						self.watched_info, string(tmdb_id), season_number, episode_count
+					)
 					if self.widget_hide_watched and watched: continue
 					item.update({'name': display, 'playcount': playcount, 'overlay': overlay})
 					url_params = build_url({
 						'mode': 'build_episode_list', 'tmdb_id': tmdb_id, 'season': season_number
 					})
+					extras_params = build_url({
+						'mode': 'extras_menu_choice', 'mediatype': 'tvshow',
+						'tmdb_id': tmdb_id, 'is_widget': self.is_widget
+					})
+					options_params = build_url({
+						'mode': 'options_menu_choice', 'content': 'season',
+						'tmdb_id': tmdb_id, 'season': season_number, 'is_widget': self.is_widget
+					})
+					cm_append((options_str, run_plugin % options_params))
+					cm_append((extras_str, run_plugin % extras_params))
 					if not playcount: cm_append((watched_str % self.watched_title, run_plugin % build_url({
 						'mode': 'mark_as_watched_unwatched_season', 'action': 'mark_as_watched', 'year': show_year,
 						'tmdb_id': tmdb_id, 'tvdb_id': tvdb_id, 'season': season_number, 'title': show_title
@@ -112,7 +123,7 @@ class Seasons:
 			all_episodes = True if params.get('season') == 'all' else False
 			if all_episodes:
 				episodes_data = all_episodes_meta(meta, self.meta_user_info, Thread)
-				if not show_specials(): episodes_data = [i for i in episodes_data if not i['season'] == 0]
+				if not show_specials(): episodes_data = [i for i in episodes_data if i['season'] != 0]
 			else: episodes_data = season_meta_function(params['season'], meta, self.meta_user_info)
 			for item in episodes_data:
 				try:
@@ -124,7 +135,7 @@ class Seasons:
 					season_poster = item_get('season_poster') or show_poster
 					thumb = item_get('thumb') or fanart
 					background = thumb if thumb_fanart else fanart
-					episode_date, premiered = adjust_premiered_date_function(premiered, adjust_hours)
+					episode_date, premiered = adjust_premiered_date(premiered, adjust_hours)
 					if not episode_date or self.current_date < episode_date:
 						if not self.show_unaired: continue
 						if season != 0: display = '[I]%s[/I]' % (unaired_label % ep_name)

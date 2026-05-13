@@ -52,14 +52,13 @@ class RealDebridAPI:
 		return False
 
 	def days_remaining(self):
-#		import datetime, time
+		import datetime, time
 		try:
 			account_info = self.account_info()
-#			FormatDateTime = '%Y-%m-%dT%H:%M:%S.%fZ'
-#			try: expires = datetime.datetime.strptime(account_info['expiration'], FormatDateTime)
-#			except: expires = datetime.datetime(*(time.strptime(account_info['expiration'], FormatDateTime)[0:6]))
-#			days = (expires - datetime.datetime.today()).days
-			days = int(account_info['premium']/86400)
+			FormatDateTime = '%Y-%m-%dT%H:%M:%S.%fZ'
+			try: expires = datetime.datetime.strptime(account_info['expiration'], FormatDateTime)
+			except: expires = datetime.datetime(*(time.strptime(account_info['expiration'], FormatDateTime)[0:6]))
+			days = (expires - datetime.datetime.today()).days
 		except: days = None
 		return days
 
@@ -76,12 +75,12 @@ class RealDebridAPI:
 	def delete_torrent(self, folder_id):
 		url = 'torrents/delete/%s' % folder_id
 		result = self._request('delete', url)
-		return True if not result is None and result.ok else False
+		return True if result is not None and result.ok else False
 
 	def delete_download(self, download_id):
 		url = 'downloads/delete/%s' % download_id
 		result = self._request('delete', url)
-		return True if not result is None and result.ok else False
+		return True if result is not None and result.ok else False
 
 	def unrestrict_link(self, link):
 		url = 'unrestrict/link'
@@ -112,27 +111,19 @@ class RealDebridAPI:
 		return result
 
 	def create_transfer(self, magnet):
-		from modules.source_utils import supported_video_extensions
-		try:
-			extensions = supported_video_extensions()
-			torrent = self.add_magnet(magnet)
-			torrent_id = torrent['id']
-#			info = self.torrent_info(torrent_id)
-#			files = info['files']
-#			torrent_keys = [str(item['id']) for item in files if item['path'].lower().endswith(tuple(extensions))]
-#			torrent_keys = ','.join(torrent_keys)
-#			self.add_torrent_select(torrent_id, torrent_keys)
+		result = self.add_magnet(magnet)
+		if result and 'id' in result:
+			torrent_id = result['id']
 			self.add_torrent_select(torrent_id, 'all')
-			return torrent_id
-		except:
-			self.delete_torrent(torrent_id)
-			return ''
+		else: torrent_id = ''
+		return torrent_id
 
 	def parse_magnet_pack(self, magnet_url, info_hash, errors=False):
 		from modules.source_utils import supported_video_extensions
 		try:
 			extensions = supported_video_extensions()
 			torrent_id = self.create_transfer(magnet_url)
+			if not torrent_id: raise Exception('real debrid null magnet')
 			for key in ['ended'] * 3:
 				kodi_utils.sleep(500)
 				torrent_info = self.torrent_info(torrent_id)
@@ -154,12 +145,12 @@ class RealDebridAPI:
 	def downloads(self):
 		string = 'pov_rd_downloads'
 		url = 'downloads?limit=500'
-		return cache_object(self._get, string, url, False, 0.5)
+		return cache_object(self._get, string, url, 0.5)
 
 	def user_cloud(self, completed=True):
 		string = 'pov_rd_user_cloud'
 		url = 'torrents?limit=500'
-		result = cache_object(self._get, string, url, False, 0.5)
+		result = cache_object(self._get, string, url, 0.5)
 		if completed: result = [i for i in result if i.get('ended')]
 		return result
 

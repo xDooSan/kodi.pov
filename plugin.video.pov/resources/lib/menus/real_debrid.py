@@ -2,7 +2,7 @@ import sys
 from debrids.real_debrid_api import RealDebridAPI as Debrid
 from modules import kodi_utils
 from modules.source_utils import supported_video_extensions
-from modules.utils import clean_file_name, clean_title, normalize, jsondate_to_datetime
+from modules.utils import clean_file_name, normalize, jsondate_to_datetime
 # from modules.kodi_utils import logger
 
 get_setting, set_setting = kodi_utils.get_setting, kodi_utils.set_setting
@@ -110,13 +110,12 @@ class Menu(Debrid):
 		kodi_utils.container_refresh()
 
 	def show_account_info(self):
-		from datetime import datetime
-		from modules.utils import datetime_workaround
+		from modules.utils import datetime_workaround, get_datetime
 		try:
 			kodi_utils.show_busy_dialog()
 			account_info = self.account_info()
-			expires = datetime_workaround(account_info['expiration'], '%Y-%m-%dT%H:%M:%S.%fZ')
-			days_remaining = (expires - datetime.today()).days
+			expires = datetime_workaround(account_info['expiration'], '%Y-%m-%dT%H:%M:%S.%fZ').date()
+			days_remaining = (expires - get_datetime()).days
 			body = []
 			append = body.append
 			append(ls(32758) % account_info['email'])

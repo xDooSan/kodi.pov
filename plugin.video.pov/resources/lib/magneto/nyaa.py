@@ -72,6 +72,7 @@ class source:
 						url = source_utils.strip_non_ascii_and_unprintable(url)
 						hash = re.search(r'btih:(.*?)&', url, re.I).group(1)
 						name = source_utils.clean_name(url.split('&dn=')[1])
+						if not any(x in name.lower() for x in ['multi', 'vf2', 'french', 'vff', 'vfq', 'truefrench']): continue
 
 						if hdlr not in name and hdlr2 not in name: continue
 						if source_utils.remove_lang(name, check_foreign_audio): continue

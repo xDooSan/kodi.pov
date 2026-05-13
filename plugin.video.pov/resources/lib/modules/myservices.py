@@ -125,7 +125,7 @@ class Premiumize:
 	icon = 'premiumize.png'
 	def __init__(self):
 		self.token = get_setting('pm.token')
-		self.client_id = '663882072'
+		self.client_id = '384733001'
 
 	def base_url(self, path):
 		return 'https://www.premiumize.me/%s' % path
@@ -354,8 +354,8 @@ class EasyNews:
 			clear_media_results_database()
 			return notification('Removed %s Authorization' % cls_name)
 
-		username = kodi_utils.dialog.input('EasyNews Username:')
-		password = kodi_utils.dialog.input('EasyNews Password:')
+		username = kodi_utils.dialog.input('EasyNews Username:').strip()
+		password = kodi_utils.dialog.input('EasyNews Password:').strip()
 		if not all((username, password)): return
 		api = EasyNewsAPI()
 		api.username, api.password = username, password
@@ -461,7 +461,7 @@ class MDBList:
 			clear_cache('mdblist', silent=True)
 			return notification('Removed %s Authorization' % cls_name)
 
-		api_key = kodi_utils.dialog.input('MDBList API Key:')
+		api_key = kodi_utils.dialog.input('MDBList API Key:').strip()
 		if not api_key: return
 		params = {'apikey': api_key}
 		response = requests.get(self.base_url('user'), params=params, timeout=timeout)
@@ -555,7 +555,7 @@ class TMDBList:
 		params = {'session_id': session_id}
 		response = requests.get(self.base_url('3/account'), params=params, headers=self.headers, timeout=timeout)
 		result = response.json()
-		if not 'id' in result: return
+		if 'id' not in result: return
 		username, session_account_id = str(result['username']), str(result['id'])
 		set_setting('tmdb.username', username)
 		set_setting('tmdb.session_id', session_id)

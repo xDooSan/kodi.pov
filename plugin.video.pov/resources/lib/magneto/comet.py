@@ -17,8 +17,8 @@ class source:
 	def __init__(self):
 		self.language = ['en']
 		self.base_link = (
-			"https://comet.stremio.ru",
 			"https://comet.feels.legal",
+			"https://comet.stremio.ru",
 			"https://cometfortheweebs.midnightignite.me"
 		)[int(getSetting('comet.url', '0'))]
 		self.movieSearch_link = '/stream/movie/%s.json'
@@ -64,6 +64,7 @@ class source:
 				file_info = [x for x in file_title if _INFO.search(x)][0]
 
 				name = source_utils.clean_name(file_title[0])
+				if not any(x in name.lower() for x in ['vf2', 'french', 'vff', 'vfq', 'truefrench']): continue
 
 				if not source_utils.check_title(title, aliases, name, hdlr, year):
 					if total_seasons is None: continue

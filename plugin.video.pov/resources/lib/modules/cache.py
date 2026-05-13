@@ -19,27 +19,12 @@ database_connect = kodi_utils.database_connect
 
 def check_databases():
 	if not kodi_utils.path_exists(databases_path): kodi_utils.make_directory(databases_path)
-	dbcon = database_connect(navigator_db) # Navigator
-	dbcon.execute("""CREATE TABLE IF NOT EXISTS navigator
-					(list_name text, list_type text, list_contents text, unique(list_name, list_type))""")
-	dbcon.close()
-	dbcon = database_connect(watched_db) # Watched Status
-	dbcon.execute("""CREATE TABLE IF NOT EXISTS watched_status
-					(db_type text, media_id text, season integer, episode integer, last_played text, title text, unique(db_type, media_id, season, episode))""")
-	dbcon.execute("""CREATE TABLE IF NOT EXISTS progress
-					(db_type text, media_id text, season integer, episode integer, resume_point text, curr_time text,
-					last_played text, resume_id integer, title text, unique(db_type, media_id, season, episode))""")
-	dbcon.execute("""DROP INDEX IF EXISTS pov_ws_media_season_episode""")
-	dbcon.execute("""CREATE INDEX IF NOT EXISTS pov_ws_in_progress_episodes ON watched_status (db_type, media_id, season DESC, episode DESC)""")
-	dbcon.close()
-	dbcon = database_connect(favorites_db) # Favorites
-	dbcon.execute("""CREATE TABLE IF NOT EXISTS favorites (db_type text, tmdb_id text, title text, unique (db_type, tmdb_id))""")
-	dbcon.close()
-	dbcon = database_connect(views_db) # Views
-	dbcon.execute("""CREATE TABLE IF NOT EXISTS views (view_type text, view_id text, unique (view_type))""")
-	dbcon.close()
 	dbcon = database_connect(maincache_db) # Main Cache
 	dbcon.execute("""CREATE TABLE IF NOT EXISTS maincache (id text unique, data text, expires integer)""")
+	dbcon.close()
+	dbcon = database_connect(navigator_db) # Navigator
+	dbcon.execute("""CREATE TABLE IF NOT EXISTS navigator
+					(list_name text, list_type text, list_contents text, unique (list_name, list_type))""")
 	dbcon.close()
 	dbcon = database_connect(metacache_db) # Meta Cache
 	dbcon.execute("""CREATE TABLE IF NOT EXISTS metadata
@@ -47,6 +32,21 @@ def check_databases():
 	dbcon.execute("""CREATE TABLE IF NOT EXISTS season_metadata (tmdb_id text not null unique, meta text, expires integer)""")
 	dbcon.execute("""CREATE TABLE IF NOT EXISTS function_cache (string_id text not null, data text, expires integer)""")
 	dbcon.execute("""CREATE INDEX IF NOT EXISTS pov_select_id_media ON metadata (tmdb_id, db_type)""")
+	dbcon.close()
+	dbcon = database_connect(watched_db) # Watched Status
+	dbcon.execute("""CREATE TABLE IF NOT EXISTS watched_status
+					(db_type text, media_id text, season integer, episode integer, last_played text, title text, unique (db_type, media_id, season, episode))""")
+	dbcon.execute("""CREATE TABLE IF NOT EXISTS progress
+					(db_type text, media_id text, season integer, episode integer, resume_point text, curr_time text,
+					last_played text, resume_id integer, title text, unique (db_type, media_id, season, episode))""")
+	dbcon.execute("""CREATE INDEX IF NOT EXISTS pov_ws_in_progress_episodes ON watched_status (db_type, media_id, season DESC, episode DESC)""")
+	dbcon.close()
+	dbcon = database_connect(favorites_db) # Favorites
+	dbcon.execute("""CREATE TABLE IF NOT EXISTS favorites (db_type text, tmdb_id text, title text, unique (db_type, tmdb_id))""")
+	dbcon.execute("""CREATE TABLE IF NOT EXISTS dropped (db_type text, tmdb_id text, title text, unique (db_type, tmdb_id))""")
+	dbcon.close()
+	dbcon = database_connect(views_db) # Views
+	dbcon.execute("""CREATE TABLE IF NOT EXISTS views (view_type text, view_id text, unique (view_type))""")
 	dbcon.close()
 	dbcon = database_connect(debridcache_db) # Debrid Cache
 	dbcon.execute("""CREATE TABLE IF NOT EXISTS debrid_data (hash text not null, debrid text not null, cached text, expires integer, unique (hash, debrid))""")
@@ -59,21 +59,19 @@ def check_databases():
 	dbcon = database_connect(trakt_db) # Trakt
 	dbcon.execute("""CREATE TABLE IF NOT EXISTS trakt_data (id text unique, data text)""")
 	dbcon.execute("""CREATE TABLE IF NOT EXISTS watched_status
-					(db_type text, media_id text, season integer, episode integer, last_played text, title text, unique(db_type, media_id, season, episode))""")
+					(db_type text, media_id text, season integer, episode integer, last_played text, title text, unique (db_type, media_id, season, episode))""")
 	dbcon.execute("""CREATE TABLE IF NOT EXISTS progress
 					(db_type text, media_id text, season integer, episode integer, resume_point text, curr_time text,
-					last_played text, resume_id integer, title text, unique(db_type, media_id, season, episode))""")
-	dbcon.execute("""DROP INDEX IF EXISTS pov_ws_media_season_episode""")
+					last_played text, resume_id integer, title text, unique (db_type, media_id, season, episode))""")
 	dbcon.execute("""CREATE INDEX IF NOT EXISTS pov_ws_in_progress_episodes ON watched_status (db_type, media_id, season DESC, episode DESC)""")
 	dbcon.close()
 	dbcon = database_connect(mdbl_db) # MDBList
 	dbcon.execute("""CREATE TABLE IF NOT EXISTS mdbl_data (id text unique, data text)""")
 	dbcon.execute("""CREATE TABLE IF NOT EXISTS watched_status
-					(db_type text, media_id text, season integer, episode integer, last_played text, title text, unique(db_type, media_id, season, episode))""")
+					(db_type text, media_id text, season integer, episode integer, last_played text, title text, unique (db_type, media_id, season, episode))""")
 	dbcon.execute("""CREATE TABLE IF NOT EXISTS progress
 					(db_type text, media_id text, season integer, episode integer, resume_point text, curr_time text,
-					last_played text, resume_id integer, title text, unique(db_type, media_id, season, episode))""")
-	dbcon.execute("""DROP INDEX IF EXISTS pov_ws_media_season_episode""")
+					last_played text, resume_id integer, title text, unique (db_type, media_id, season, episode))""")
 	dbcon.execute("""CREATE INDEX IF NOT EXISTS pov_ws_in_progress_episodes ON watched_status (db_type, media_id, season DESC, episode DESC)""")
 	dbcon.close()
 
@@ -92,30 +90,33 @@ def remove_old_packages():
 			except: pass
 
 def clean_databases(current_time=None, database_check=True, silent=False):
-	remove_old_packages()
-	remove_old_databases()
 	if database_check: check_databases()
-	current_time = current_time or get_current_time()
-	command_base = """DELETE FROM %s WHERE CAST(%s AS INT) <= ?"""
-	for db, sql in (
-		(external_db, command_base % ('results_data', 'expires')),
-		(debridcache_db, command_base % ('debrid_data', 'expires')),
-		(maincache_db, command_base % ('maincache', 'expires')),
-		(metacache_db, command_base % ('metadata', 'expires')),
-		(metacache_db, command_base % ('function_cache', 'expires')),
-		(metacache_db, command_base % ('season_metadata', 'expires'))
-	):
-		try:
-			dbcon = database_connect(db)
-			dbcur = dbcon.cursor()
-			dbcur.execute("""PRAGMA synchronous = OFF""")
-			dbcur.execute("""PRAGMA journal_mode = OFF""")
-			dbcur.execute(sql, (current_time,))
-			dbcon.commit()
-			dbcur.execute("""VACUUM""")
-		except: pass
+	if not current_time: from datetime import datetime
+	current_time = current_time or int(datetime.now().timestamp())
+	for db, table in (
+		(maincache_db, 'maincache'),
+		(external_db, 'results_data'),
+		(debridcache_db, 'debrid_data'),
+		(metacache_db, 'function_cache'),
+		(metacache_db, 'season_metadata'),
+		(metacache_db, 'metadata')
+	): purge_database(db, table, current_time)
+	dbcon = database_connect(watched_db, isolation_level=None)
+	dbcon.execute("""VACUUM""")
+	dbcon.close()
 	limit_metacache_database()
+	remove_old_databases()
+	remove_old_packages()
 	if not silent: kodi_utils.notification(32576, 1500)
+
+def purge_database(db, table, expiry):
+	dbcon = database_connect(db)
+	dbcur = dbcon.cursor()
+	dbcur.execute("""PRAGMA synchronous = OFF""")
+	dbcur.execute("""PRAGMA journal_mode = OFF""")
+	dbcur.execute("""DELETE FROM %s WHERE expires <= ?""" % table, (expiry,))
+	dbcon.commit()
+	dbcur.execute("""VACUUM""")
 
 def limit_metacache_database(max_size=50):
 	with kodi_utils.open_file(metacache_db) as f: fsize = f.size()
@@ -130,10 +131,6 @@ def limit_metacache_database(max_size=50):
 	dbcur.execute("""DELETE FROM season_metadata WHERE ROWID IN (SELECT ROWID FROM season_metadata ORDER BY ROWID DESC LIMIT -1 OFFSET 100)""")
 	dbcon.commit()
 	dbcur.execute("""VACUUM""")
-
-def get_current_time():
-	import time, datetime
-	return int(time.mktime(datetime.datetime.now().timetuple()))
 
 def clear_cache(cache_type, silent=False):
 	def _confirm():
