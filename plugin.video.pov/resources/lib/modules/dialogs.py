@@ -206,7 +206,7 @@ def random_choice(choice, meta):
 	tmdb_id = meta.get('tmdb_id')
 	if not tmdb_id: return
 	from modules.episode_tools import get_random_episode
-	from sources import Sources
+	from modules.sources import Sources
 	meta, play_params = get_random_episode(tmdb_id, True if choice == 'play_random_continual' else False)
 	if not play_params: return notification(32760)
 	Sources.factory(play_params)
@@ -260,11 +260,9 @@ def extras_lists_choice():
 	set_setting('extras.enabled_menus', ','.join(selection))
 
 def set_language_filter_choice(filter_setting):
-	from modules.meta_lists import language_choices
-	lang_choices = language_choices
-	lang_choices.pop('None')
-	dl = list(lang_choices.keys())
-	fl = list(lang_choices.values())
+	from modules.meta_lists import meta_languages
+	dl = list(k for k, v in meta_languages.items() if v['long'])
+	fl = list(v['long'] for v in meta_languages.values() if v['long'])
 	try: preselect = [fl.index(i) for i in get_setting(filter_setting).split(', ')]
 	except: preselect = []
 	list_items = [{'line1': item} for item in dl]
@@ -354,9 +352,9 @@ def color_choice(msg_dialog='POV', no_color=False):
 
 def meta_language_choice():
 	from modules.meta_lists import meta_languages
-	langs = meta_languages
-	list_items = [{'line1': i['name']} for i in langs]
-	kwargs = {'items': json.dumps(list_items), 'heading': ls(32145)}
+	langs = [{'iso': v['iso'], 'name': k} for k, v in meta_languages.items()]
+	list_items = [{'line1': i['name'], 'line2': i['iso']} for i in langs]
+	kwargs = {'items': json.dumps(list_items), 'heading': ls(32145), 'multi_line': 'true'}
 	list_choose = select_dialog(langs, **kwargs)
 	if list_choose is None: return None
 	chosen_language, chosen_language_display = list_choose['iso'], list_choose['name']
@@ -521,7 +519,7 @@ def clear_scrapers_cache(silent=False):
 
 def clear_and_rescrape(mediatype, meta, season=None, episode=None):
 	from caches.providers_cache import ExternalProvidersCache
-	from sources import Sources
+	from modules.sources import Sources
 	show_busy_dialog()
 	deleted = ExternalProvidersCache().delete_cache_single(mediatype, str(meta['tmdb_id']))
 	hide_busy_dialog()
@@ -532,14 +530,14 @@ def clear_and_rescrape(mediatype, meta, season=None, episode=None):
 	Sources().source_select(play_params)
 
 def rescrape_with_disabled(mediatype, meta, season=None, episode=None):
-	from sources import Sources
+	from modules.sources import Sources
 	play_params = {'mode': 'play_media', 'tmdb_id': meta['tmdb_id'], 'autoplay': 'false', 'disabled_ignored': 'true', 'prescrape': 'false'}
 	if mediatype == 'movie': play_params.update({'mediatype': 'movie'})
 	else: play_params.update({'mediatype': 'episode', 'season': season, 'episode': episode})
 	Sources().source_select(play_params)
 
 def scrape_with_filters_ignored(mediatype, meta, season=None, episode=None):
-	from sources import Sources
+	from modules.sources import Sources
 	play_params = {'mode': 'play_media', 'tmdb_id': meta['tmdb_id'], 'autoplay': 'false', 'ignore_scrape_filters': 'true'}
 	if mediatype == 'movie': play_params.update({'mediatype': 'movie'})
 	else: play_params.update({'mediatype': 'episode', 'season': season, 'episode': episode})
@@ -548,7 +546,7 @@ def scrape_with_filters_ignored(mediatype, meta, season=None, episode=None):
 
 def scrape_with_custom_values(mediatype, meta, season=None, episode=None):
 	from windows import open_window
-	from sources import Sources
+	from modules.sources import Sources
 	play_params = {'mode': 'play_media', 'tmdb_id': meta['tmdb_id'], 'autoplay': 'false'}
 	if mediatype in ('movie', 'movies'): play_params.update({'mediatype': 'movie'})
 	else: play_params.update({'mediatype': 'episode', 'season': season, 'episode': episode})
@@ -575,7 +573,7 @@ def scrape_with_custom_values(mediatype, meta, season=None, episode=None):
 
 def scrape_from_episode_group(meta, season, episode):
 	from indexers.tmdb_api import episode_groups, episode_group_details
-	from sources import Sources
+	from modules.sources import Sources
 	tmdb_id, heading, poster = meta['tmdb_id'], meta['tvshowtitle'], meta['poster']
 	groups = episode_groups(tmdb_id)
 	choices = [
