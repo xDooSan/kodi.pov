@@ -33,7 +33,7 @@ def trailer_choice(mediatype, poster, tmdb_id, trailer_url, all_trailers=None):
 			 'icon': poster}
 			for i in all_trailers
 		]
-		kwargs = {'items': json.dumps(list_items), 'heading': ls(32606), 'multi_line': 'true'}
+		kwargs = {'items': json.dumps(list_items), 'heading': ls(32606)}
 		video_id = select_dialog([i['key'] for i in all_trailers], **kwargs)
 	else: video_id = next(iter(all_trailers), {}).get('key')
 	if video_id is None: trailer_url = 'canceled'
@@ -72,10 +72,10 @@ def trakt_manager_choice(params):
 		 '%s items' % item['item_count'])
 		for item in trakt_api.trakt_get_lists('my_lists')
 	]
-	choices += [(i.lower(), '[I]%s[/I]' % i, '') for i in (ls(32499), ls(32453), ls(32500))]
+	choices += [(i.lower(), i, '') for i in (ls(32500), ls(32453), ls(32499))]
 	if params['mediatype'] == 'tvshow': choices += [('dropped', 'Toggle Dropped', '')]
 	list_items = [{'line1': item[1], 'line2': item[2], 'icon': icon} for item in choices]
-	kwargs = {'items': json.dumps(list_items), 'heading': heading, 'multi_line': 'true'}
+	kwargs = {'items': json.dumps(list_items), 'heading': heading}
 	choice = select_dialog([(i[0], i[1]) for i in choices], **kwargs)
 	if choice is None: return
 	add_str, rem_str = 'Add to %s?' % choice[1], 'Remove from %s?' % choice[1]
@@ -87,7 +87,7 @@ def trakt_manager_choice(params):
 		data = [{'ids': {'tmdb': int(params['tmdb_id'])}}]
 		data = {'shows' if params['mediatype'] == 'tvshow' else 'movies': data}
 		if not action:
-			if not confirm_dialog(text=rem_str, top_space=True): return
+			if not confirm_dialog(text=rem_str): return
 			return trakt_api.remove_from_sync(choice[0], data)
 		else: return trakt_api.add_to_sync(choice[0], data)
 	list_items = {
@@ -97,7 +97,7 @@ def trakt_manager_choice(params):
 	action = False if int(params['tmdb_id']) in list_items else True
 	data = {'shows' if params['mediatype'] == 'tvshow' else 'movies': [{'ids': {'tmdb': int(params['tmdb_id'])}}]}
 	if not action:
-		if not confirm_dialog(text=rem_str, top_space=True): return
+		if not confirm_dialog(text=rem_str): return
 		trakt_api.remove_from_list(choice[0][1], choice[0][2], data)
 	else: trakt_api.add_to_list(choice[0][1], choice[0][2], data)
 
@@ -111,30 +111,30 @@ def mdbl_manager_choice(params):
 		(str(item['id']), item['name'], '%s items' % item['items'])
 		for item in mdblist_api.mdbl_get_lists('my_lists') if not item['dynamic']
 	]
-	choices += [(i.lower(), '[I]%s[/I]' % i, '') for i in (ls(32499), ls(32500))]
+	choices += [(i.lower(), i, '') for i in (ls(32500), ls(32499))]
 	if params['mediatype'] == 'tvshow': choices += [('dropped', 'Toggle Dropped', '')]
 	list_items = [{'line1': item[1], 'line2': item[2], 'icon': icon} for item in choices]
-	kwargs = {'items': json.dumps(list_items), 'heading': heading, 'multi_line': 'true'}
+	kwargs = {'items': json.dumps(list_items), 'heading': heading}
 	choice = select_dialog([(i[0], i[1]) for i in choices], **kwargs)
 	if choice is None: return
 	add_str, rem_str = 'Add to %s?' % choice[1], 'Remove from %s?' % choice[1]
 	if 'dropped' in choice[0]:
 		return mdblist_api.hide_unhide_mdbl_items(params['tmdb_id'], 'shows', params['imdb_id'], 'dropped')
 	if 'collection' in choice[0]:
-		list_items = mdblist_api.mdblist_collection('all', None, '')
+		list_items = mdblist_api.mdblist_collection('all', None)
 		action = False if int(params['tmdb_id']) in {i['id'] for i in list_items} else True
 		data = [{'ids': {'tmdb': int(params['tmdb_id'])}}]
 		data = {'shows' if params['mediatype'] == 'tvshow' else 'movies': data}
 		if not action:
-			if not confirm_dialog(text=rem_str, top_space=True): return
+			if not confirm_dialog(text=rem_str): return
 			return mdblist_api.remove_from_collection(data)
 		else: return mdblist_api.add_to_collection(data)
-	if 'watchlist' in choice[0]: list_items = mdblist_api.mdblist_watchlist('all', None, '')
+	if 'watchlist' in choice[0]: list_items = mdblist_api.mdblist_watchlist('all', None)
 	else: list_items = mdblist_api.get_mdbl_list_contents('my_lists', choice[0])
 	action = False if int(params['tmdb_id']) in {i['id'] for i in list_items} else True
 	data = {'shows' if params['mediatype'] == 'tvshow' else 'movies': [{'tmdb': int(params['tmdb_id'])}]}
 	if not action:
-		if not confirm_dialog(text=rem_str, top_space=True): return
+		if not confirm_dialog(text=rem_str): return
 		mdblist_api.remove_from_list(choice[0], data)
 	else: mdblist_api.add_to_list(choice[0], data)
 
@@ -142,7 +142,7 @@ def tmdb_manager_choice(params):
 	if not get_setting('tmdb.token', ''): return notification(32760)
 	from indexers import tmdb_api
 	image_resolution, tmdb_image_base = settings.get_resolution(), tmdb_api.tmdb_image_base
-	heading = ls(tmdb_api.tmdb_list_heading).replace('[B]', '').replace('[/B]', '')
+	heading = ls(tmdb_api.tmdblist_heading).replace('[B]', '').replace('[/B]', '')
 	icon = media_path('tmdb.png')
 	list_name = params.get('trakt_list_name') or params.get('mdbl_list_name') or ''
 	choices = []
@@ -152,11 +152,11 @@ def tmdb_manager_choice(params):
 		for item in tmdb_api.user_lists()
 	]
 	if not list_name:
-		choices += [(i.lower(), '[I]%s[/I]' % i, '', icon) for i in (ls(32453), ls(32500))]
+		choices += [(i.lower(), i, '', icon) for i in (ls(32500), ls(32453))]
 	choices += [('clear', 'Clear list cache', '', icon), ('new', 'Create a new list', list_name, icon)]
 	if not choices: return
 	list_items = [{'line1': item[1], 'line2': item[2], 'icon': item[3]} for item in choices]
-	kwargs = {'items': json.dumps(list_items), 'heading': heading, 'multi_line': 'true'}
+	kwargs = {'items': json.dumps(list_items), 'heading': heading}
 	choice = select_dialog([(i[0], i[1]) for i in choices], **kwargs)
 	if choice is None: return
 	if 'clear' in choice[0]:
@@ -178,13 +178,12 @@ def tmdb_manager_choice(params):
 	add_str, rem_str = 'Add to %s?' % choice[1], 'Remove from %s?' % choice[1]
 	params['mediatype'] = 'tv' if params['mediatype'] == 'tvshow' else 'movie'
 	if 'watchlist' in choice[0] or 'favorites' in choice[0]:
-		if 'watchlist' == choice[0]:
-			list_items = tmdb_api.watchlist(params['mediatype'])
+		if 'watchlist' == choice[0]: list_items = tmdb_api.watchlist(params['mediatype'])
 		else: list_items = tmdb_api.favorites(params['mediatype'])
 		list_type = 'favorite' if choice[0] == 'favorites' else 'watchlist'
 		action = False if int(params['tmdb_id']) in {i['id'] for i in list_items} else True
 		data = {'media_type': params['mediatype'], 'media_id': params['tmdb_id'], list_type: action}
-		if not action and not confirm_dialog(text=rem_str, top_space=True): return
+		if not action and not confirm_dialog(text=rem_str): return
 		if tmdb_api.add_to_watchlist_favorites(data, list_type)['success']:
 			tmdb_api.clear_tmdbl_cache()
 			if not action: container_refresh()
@@ -193,7 +192,7 @@ def tmdb_manager_choice(params):
 	data = {'items': [{'media_type': params['mediatype'], 'media_id': params['tmdb_id']}]}
 	status = tmdb_api.list_status(choice[0], params['mediatype'], params['tmdb_id'])
 	if status and status['success']:
-		if not confirm_dialog(text=rem_str, top_space=True): return
+		if not confirm_dialog(text=rem_str): return
 		action, function = False, tmdb_api.list_remove_items
 	else: action, function = True, tmdb_api.list_add_items
 	if function(choice[0], data)['success']:
@@ -235,12 +234,11 @@ def set_quality_choice(quality_setting):
 	except: preselect = []
 	list_items = [{'line1': item} for item in dl]
 	kwargs = {'items': json.dumps(list_items), 'heading': 'POV', 'multi_choice': 'true', 'preselect': preselect}
-	choice = select_dialog(fl, **kwargs)
+	choice = select_dialog(fl, multi_line='false', **kwargs)
 	if choice is None: return
-	if choice == []:
-		ok_dialog(text=32574, top_space=True)
-		return set_quality_choice(quality_setting)
-	set_setting(quality_setting, ', '.join(choice))
+	if choice: return set_setting(quality_setting, ', '.join(choice))
+	ok_dialog(text=32574)
+	return set_quality_choice(quality_setting)
 
 def extras_lists_choice():
 	fl = [2050, 2051, 2052, 2053, 2054, 2055, 2056, 2057, 2058, 2059, 2060, 2061, 2062]
@@ -253,11 +251,11 @@ def extras_lists_choice():
 	except: preselect = []
 	list_items = [{'line1': item} for item in dl]
 	kwargs = {'items': json.dumps(list_items), 'heading': 'POV', 'multi_choice': 'true', 'preselect': preselect}
-	selection = select_dialog(fl, **kwargs)
+	selection = select_dialog(fl, multi_line='false', **kwargs)
 	if selection == []: return set_setting('extras.enabled_menus', 'noop')
 	elif selection is None: return
-	selection = [str(i) for i in selection]
-	set_setting('extras.enabled_menus', ','.join(selection))
+	selection = ','.join(map(str, selection))
+	set_setting('extras.enabled_menus', selection)
 
 def set_language_filter_choice(filter_setting):
 	from modules.meta_lists import meta_languages
@@ -267,7 +265,7 @@ def set_language_filter_choice(filter_setting):
 	except: preselect = []
 	list_items = [{'line1': item} for item in dl]
 	kwargs = {'items': json.dumps(list_items), 'heading': 'POV', 'multi_choice': 'true', 'preselect': preselect}
-	choice = select_dialog(fl, **kwargs)
+	choice = select_dialog(fl, multi_line='false', **kwargs)
 	if choice is None: return
 	if choice == []: return set_setting(filter_setting, 'eng')
 	set_setting(filter_setting, ', '.join(choice))
@@ -281,17 +279,17 @@ def results_sorting_choice():
 	]
 	list_items = [{'line1': item[0]} for item in choices]
 	kwargs = {'items': json.dumps(list_items), 'heading': 'POV'}
-	choice = select_dialog(choices, **kwargs)
-	if choice:
-		set_setting('results.sort_order_display', choice[0])
-		set_setting('results.sort_order', choice[1])
+	choice = select_dialog(choices, multi_line='false', **kwargs)
+	if not choice: return
+	set_setting('results.sort_order_display', choice[0])
+	set_setting('results.sort_order', choice[1])
 
 def results_highlights_choice():
 	choices = [(ls(32240), '0'), (ls(32583), '1'), (ls(32241), '2')]
 	list_items = [{'line1': item[0]} for item in choices]
 	kwargs = {'items': json.dumps(list_items), 'heading': 'POV'}
-	choice = select_dialog([i[1] for i in choices], **kwargs)
-	if choice: return set_setting('highlight.type', choice)
+	choice = select_dialog([i[1] for i in choices], multi_line='false', **kwargs)
+	if choice: set_setting('highlight.type', choice)
 
 def results_layout_choice():
 	xml_choices = [
@@ -301,15 +299,15 @@ def results_layout_choice():
 	]
 	list_items = [{'line1': item} for item in xml_choices]
 	kwargs = {'items': json.dumps(list_items), 'heading': 'POV'}
-	choice = select_dialog(xml_choices, **kwargs)
+	choice = select_dialog(xml_choices, multi_line='false', **kwargs)
 	if choice in xml_choices: set_setting('results.xml_style', choice)
 
 def set_subtitle_choice():
 	choices = [(ls(32192), '0'), (ls(32193), '1'), (ls(32027), '2')]
 	list_items = [{'line1': item[0]} for item in choices]
 	kwargs = {'items': json.dumps(list_items), 'heading': 'POV'}
-	choice = select_dialog([i[1] for i in choices], **kwargs)
-	if choice: return set_setting('subtitles.subs_action', choice)
+	choice = select_dialog([i[1] for i in choices], multi_line='false', **kwargs)
+	if choice: set_setting('subtitles.subs_action', choice)
 
 def scraper_dialog_color_choice(setting):
 	setting = 'int_dialog_highlight' if setting == 'internal' else 'ext_dialog_highlight'
@@ -338,15 +336,15 @@ def scraper_color_choice(setting):
 	if chosen_color: set_setting(setting, chosen_color)
 
 def color_choice(msg_dialog='POV', no_color=False):
-	from modules.meta_lists import meta_colors
-	color_chart = meta_colors
-	color_display = ['[COLOR %s]%s[/COLOR]' % (i, i.capitalize()) for i in color_chart]
-	if no_color:
-		color_chart.insert(0, 'No Color')
-		color_display.insert(0, 'No Color')
+	import xml.etree.ElementTree as ET
+	root = ET.fromstring(kodi_utils.open_file('special://xbmc/system/colors.xml').read()).iter('color')
+	color_chart = [(i.get('name'), i.text) for i in root if i.get('name') not in ('none', 'transparent')]
+	color_chart.sort(key=lambda k: k[1], reverse=False)
+	if no_color: color_chart = [('no color', ''), *color_chart]
+	color_display = ['[COLOR %s]%s[/COLOR]' % (i[1], i[0].upper()) for i in color_chart]
 	list_items = [{'line1': item} for item in color_display]
 	kwargs = {'items': json.dumps(list_items), 'heading': 'POV'}
-	choice = select_dialog(color_chart, **kwargs)
+	choice = select_dialog([i[0] for i in color_chart], multi_line='false', **kwargs)
 	if choice is None: return
 	return choice
 
@@ -354,10 +352,10 @@ def meta_language_choice():
 	from modules.meta_lists import meta_languages
 	langs = [{'iso': v['iso'], 'name': k} for k, v in meta_languages.items()]
 	list_items = [{'line1': i['name'], 'line2': i['iso']} for i in langs]
-	kwargs = {'items': json.dumps(list_items), 'heading': ls(32145), 'multi_line': 'true'}
-	list_choose = select_dialog(langs, **kwargs)
-	if list_choose is None: return None
-	chosen_language, chosen_language_display = list_choose['iso'], list_choose['name']
+	kwargs = {'items': json.dumps(list_items), 'heading': ls(32145)}
+	choice = select_dialog(langs, multi_line='false', **kwargs)
+	if choice is None: return None
+	chosen_language, chosen_language_display = choice['iso'], choice['name']
 	set_setting('meta_language', chosen_language)
 	set_setting('meta_language_display', chosen_language_display)
 	clear_cache('meta', silent=True)
@@ -372,7 +370,7 @@ def favorites_choice(params):
 		kwargs = {'items': json.dumps(list_items), 'heading': ls(32453)}
 		mediatype = select_dialog([item[1] for item in list], **kwargs)
 		if mediatype is None: return
-		if not favorites.clear(mediatype): notification(32574)
+		notification(32576) if favorites.clear(mediatype) else notification(32574)
 	else:
 		mediatype, tmdb_id, title = params['mediatype'], params['tmdb_id'], params['title']
 		current_favorites, refresh = favorites.get(mediatype), False
@@ -411,34 +409,34 @@ def options_menu(params, meta=None):
 	on_str, off_str, currently_str, open_str, settings_str = ls(32090), ls(32027), ls(32598), ls(32641), ls(32247)
 	base_str1, base_str2 = '%s%s', '%s: [B]%s[/B]' % (currently_str, '%s')
 	scraper_options_str = '%s %s' % (ls(32533), ls(32841))
-	multi_line = 'true' if content in ('movie', 'episode') else 'false'
+	scrapable = True if content in ('movie', 'episode') else False
 	watched_indicators = settings.watched_indicators()
 	results_xml_style_status = settings.results_xml_style()
 	if settings.display_uncached_torrents(): uncached_torrents_status, uncached_torrents_toggle = (on_str, 'false')
 	else: uncached_torrents_status, uncached_torrents_toggle = (off_str, 'true')
 	listing = (
 		('scrape_from_episode_group', 'Scrape From Episode Group', scraper_options_str, meta['poster']) if content == 'episode' else None,
-		('clear_and_rescrape', ls(32014), scraper_options_str, meta['poster']) if multi_line == 'true' else None,
-		('rescrape_with_disabled', ls(32006), scraper_options_str, meta['poster']) if multi_line == 'true' else None,
-		('scrape_with_filters_ignored', ls(32807), scraper_options_str, meta['poster']) if multi_line == 'true' else None,
-		('scrape_with_custom_values', ls(32135), scraper_options_str, meta['poster']) if multi_line == 'true' else None,
-		('play_random', ls(32541), '', meta['poster']) if content in ('tvshow') and meta else None,
-		('play_random_continual', ls(32542), '', meta['poster']) if content in ('tvshow') and meta else None,
-		('clear_scrapers_cache', ls(32637), '') if content in ('movie', 'episode') else None,
+		('clear_and_rescrape', ls(32014), scraper_options_str, meta['poster']) if scrapable else None,
+		('rescrape_with_disabled', ls(32006), scraper_options_str, meta['poster']) if scrapable else None,
+		('scrape_with_filters_ignored', ls(32807), scraper_options_str, meta['poster']) if scrapable else None,
+		('scrape_with_custom_values', ls(32135), scraper_options_str, meta['poster']) if scrapable else None,
+		('play_random', ls(32541), meta['title'], meta['poster']) if content in ('tvshow') and meta else None,
+		('play_random_continual', ls(32542), meta['title'], meta['poster']) if content in ('tvshow') and meta else None,
+		('clear_scrapers_cache', ls(32637), '') if scrapable else None,
 		('open_external_scrapers_choice', '%s %s' % (ls(32118), ls(32513)), ''),
-		('toggle_torrents_display_uncached', base_str1 % ('', ls(32160)), base_str2 % uncached_torrents_status) if multi_line == 'true' else None,
-		('set_results_xml_display', base_str1 % ('', '%s %s' % (ls(32139), ls(32140))), base_str2 % results_xml_style_status) if multi_line == 'true' else None,
-		('dropped_choice', 'Toggle Dropped', '') if watched_indicators == 0 and content in ('tvshow') else None,
+		('toggle_torrents_display_uncached', base_str1 % ('', ls(32160)), base_str2 % uncached_torrents_status) if scrapable else None,
+		('set_results_xml_display', base_str1 % ('', '%s %s' % (ls(32139), ls(32140))), base_str2 % results_xml_style_status) if scrapable else None,
+		('dropped_choice', 'Toggle Dropped', meta['title'], meta['poster']) if watched_indicators == 0 and content in ('tvshow') else None,
 		('clear_trakt_cache', ls(32497) % ls(32037), '') if watched_indicators == 1 else None,
 		('clear_mdbl_cache', ls(32497) % 'MDBList', '') if watched_indicators == 2 else None,
-		('clear_media_cache', ls(32604) % (ls(32028) if content in ('movie') else ls(32029)), '', meta['poster']) if content in ('movie', 'tvshow') and meta else None,
+		('clear_media_cache', ls(32604) % (ls(32028) if content in ('movie') else ls(32029)), meta['title'], meta['poster']) if content in ('movie', 'tvshow') and meta else None,
 		('open_pov_settings', '%s %s %s' % (open_str, ls(32036), settings_str), ''),
 		('reload_widgets', 'POV: Refresh Widgets', '') if is_widget else None
 	)
 	listing = [item for item in listing if item]
 	list_items = list(_builder())
 	heading = ls(32646).replace('[B]', '').replace('[/B]', '')
-	kwargs = {'items': json.dumps(list_items), 'heading': heading, 'multi_line': multi_line}
+	kwargs = {'items': json.dumps(list_items), 'heading': heading}
 	choice = select_dialog([i[0] for i in listing], **kwargs)
 	if   choice in (None, 'save_and_exit'): return
 	elif choice == 'clear_and_rescrape': return clear_and_rescrape(content, meta, season, episode)
@@ -456,7 +454,7 @@ def options_menu(params, meta=None):
 	elif choice == 'clear_trakt_cache': return clear_cache('trakt')
 	elif choice == 'clear_mdbl_cache': return clear_cache('mdblist')
 	elif choice == 'clear_media_cache': return refresh_cached_meta(meta)
-	elif choice == 'open_pov_settings': return kodi_utils.open_settings('0.0')
+	elif choice == 'open_pov_settings': return kodi_utils.open_settings('')
 #	elif choice == 'reload_widgets': return kodi_utils.widget_refresh()
 	elif choice == 'reload_widgets': return execute_builtin('ReloadSkin()')
 	if   choice in ('clear_trakt_cache', 'clear_mdbl_cache'): container_refresh()
@@ -479,9 +477,7 @@ def refresh_cached_meta(meta):
 	try:
 		metacache = MetaCache()
 		mediatype, tmdb_id = meta['mediatype'], meta['tmdb_id']
-		if mediatype == 'tvshow':
-			total_seasons = meta.get('total_seasons')
-			metacache.delete_all_seasons_memory_cache(tmdb_id, total_seasons)
+		if mediatype == 'tvshow': metacache.delete_all_seasons_memory_cache(tmdb_id, meta.get('total_seasons'))
 		metacache.delete(mediatype, 'tmdb_id', tmdb_id, meta)
 		notification(32576, 1500)
 		container_refresh()
@@ -508,7 +504,7 @@ def build_navigate_to_page(params):
 	if new_start is None: return
 	if use_alphabet: new_page, new_letter = '', new_start
 	else: new_page, new_letter = new_start, None
-	url_params = {'mode': params.get('transfer_mode', ''), 'action': params.get('transfer_action', ''), 'new_page': new_page, 'new_letter': new_letter,
+	url_params = {'mode': params.get('transfer_mode', ''), 'action': params.get('transfer_action', ''), 'new_page': new_page,
 				'mediatype': params.get('mediatype', ''), 'query': params.get('query', ''), 'actor_id': params.get('actor_id', ''),
 				'user': params.get('user', ''), 'slug': params.get('slug', ''), 'list_id': params.get('list_id', ''), 'name': params.get('name', '')}
 	execute_builtin('Container.Update(%s)' % build_url(url_params))
@@ -584,8 +580,8 @@ def scrape_from_episode_group(meta, season, episode):
 	]
 	if not choices: return notification(32760)
 	list_items = [{'line1': item[1], 'line2': item[2], 'icon': poster} for item in choices]
-	kwargs = {'items': json.dumps(list_items), 'heading': heading, 'enumerate': 'true', 'multi_line': 'true'}
-	choice = select_dialog([i[0] for i in choices], **kwargs)
+	kwargs = {'items': json.dumps(list_items), 'heading': heading, 'enumerate': 'true'}
+	choice = select_dialog([i[0] for i in choices], multi_line='false', **kwargs)
 	if choice is None: return
 	episodes = episode_group_details(choice)
 	if not episodes: return notification(32760)
@@ -601,13 +597,13 @@ def scrape_from_episode_group(meta, season, episode):
 	), None)
 	if index is not None:
 		heading = episodes[index]['name']
-		episodes, preselect = episodes[index:] + episodes[:index], [0]
-	else: heading, preselect = meta['title'], []
+		episodes, preselect = episodes[index:] + episodes[:index], 0
+	else: heading, preselect = meta['title'], -1
 	choices = [(item['custom_season'], item['custom_episode'], item['custom_name'], item['custom_title']) for item in episodes]
 	if not choices: return
 	list_items = [{'line1': item[2], 'line2': item[3], 'icon': poster} for item in choices]
-	kwargs = {'items': json.dumps(list_items), 'heading': heading, 'multi_line': 'true', 'preselect': preselect}
-	choice = select_dialog([(i[0], i[1]) for i in choices], **kwargs)
+	kwargs = {'items': json.dumps(list_items), 'heading': heading, 'preselect': preselect}
+	choice = select_dialog([(i[0], i[1]) for i in choices], multi_line='false', **kwargs)
 	if choice is None: return
 	play_params = {'mode': 'play_media', 'tmdb_id': tmdb_id, 'mediatype': 'episode', 'season': season, 'episode': episode}
 	play_params.update({'custom_season': choice[0], 'custom_episode': choice[1]})

@@ -80,7 +80,8 @@ class Sources:
 		self.include_prerelease_results, self.include_3D_results = settings.include_prerelease_3d_results()
 		self.quality_filter = self._quality_filter()
 		self.limit_resolve = max(int(get_setting('limit_resolve', '10')), 1)
-		self.full_screen = get_setting('load_action') == '1'
+		if get_property('pov_total_autoplays') != '': self.full_screen = False
+		else: self.full_screen = get_setting('load_action') == '1'
 		self.size_filter = int(get_setting('results.size_filter', '0'))
 		self.include_unknown_size = get_setting('results.include.unknown.size') == 'true'
 		self.sleep_time = settings.display_sleep_time()
@@ -102,7 +103,7 @@ class Sources:
 			if self.active_external: self.activate_external_providers()
 			self.orig_results = self.collect_results()
 			results = self.process_results(self.orig_results)
-		self.meta.update({'scrape_sources': len(results), 'scrape_time': time.monotonic() - start_time})
+		self.meta.update({'scrape_time': time.monotonic() - start_time})
 		if not results: return self._process_post_results()
 		self.play_source(results)
 
@@ -115,7 +116,6 @@ class Sources:
 			for i in self.threads: i.start()
 		if self.active_external or self.background:
 			if self.active_external:
-				self.meta.update({'full_screen': self.full_screen, 'scrape_timeout': self.timeout})
 				self.external_args = (
 					self.meta,
 					self.external_providers,
@@ -127,7 +127,7 @@ class Sources:
 					self.disabled_ignored
 				)
 				self.activate_providers('external', Manager, False)
-#			if self.providers: [i.join() for i in self.threads]
+			elif self.providers and self.background: [i.join() for i in self.threads]
 		else: self.scrapers_dialog('internal')
 		self._kill_progress_dialog()
 		return self.sources
@@ -446,8 +446,8 @@ class Sources:
 				except: pass
 			else: meta = movie_meta('tmdb_id', self.tmdb_id, meta_user_info, current_date)
 		meta.update({
-			'background': self.background, 'mediatype': self.mediatype,
-			'season': self.season, 'episode': self.episode
+			'full_screen': self.full_screen, 'scrape_timeout': self.timeout, 'background': self.background,
+			'mediatype': self.mediatype, 'season': self.season, 'episode': self.episode
 		})
 		if self.custom_title: meta['custom_title'] = self.custom_title
 		if self.custom_year: meta['custom_year'] = self.custom_year

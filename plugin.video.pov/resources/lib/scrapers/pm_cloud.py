@@ -40,7 +40,7 @@ class source(Debrid):
 
 					if title_filter and not check_title(title, normalized, self.aliases, self.year, self.season, self.episode): continue
 					URLName = clean_file_name(normalized).replace('html', ' ').replace('+', ' ').replace('-', ' ')
-					file_dl, size = item['link'], round(float(int(item['size']))/1073741824, 2)
+					file_dl, size = self.get_item_details(item['link'])['link'], round(float(int(item['size']))/1073741824, 2)
 					video_quality, details = get_file_info(name_info=release_info_format(normalized))
 					sources_append({
 						'source': self.scrape_provider, 'direct': True,
@@ -57,7 +57,7 @@ class source(Debrid):
 	def _scrape_cloud(self):
 		try:
 			results_append = self.scrape_results.append
-			cloud_files = self.item_listall()['files']
+			cloud_files = self.item_listall()
 			for item in cloud_files:
 				try: item.update({'filename': item['name'], 'folder_name': item['path'], 'link': item['id']})
 				except: pass

@@ -21,7 +21,7 @@ def watch_indicators(function):
 			'At successful activation, watched status and resume progress will be set to [B]%s[/B]. '
 			'To change settings after activation, use the addon settings category:[CR]'
 			'[B]Features/Watched Indicators/Watched Status Provider[/B]'
-		) % instance.__class__.__name__)
+		) % instance.__class__.__name__, top_space=False)
 	return wrapper
 
 def _make_progress_dialog(**kwargs):
@@ -57,9 +57,9 @@ class RepeatTimer(Timer):
 class RealDebrid:
 	icon = 'realdebrid.png'
 	def __init__(self):
-		self.token = get_setting('rd.token')
-		self.client_id = get_setting('rd.client_id') or 'X245A4XAIBGVM'
 		self.secret = get_setting('rd.secret')
+		self.token = get_setting('rd.token')
+		self.client_id = 'X245A4XAIBGVM'
 
 	def base_url(self, path):
 		return 'https://app.real-debrid.com/%s' % path

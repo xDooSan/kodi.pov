@@ -63,9 +63,10 @@ class Menu(Debrid):
 				name = clean_file_name(item['n']).upper()
 				size = float(int(item['s']))/1073741824
 				display = '%02d | [B]%s[/B] | %.2f GB | [I]%s [/I]' % (count, file_str, size, name)
-				params = {'name': name, 'url': item['l'], 'image': default_icon}
-				url_params = {**params, 'mode': 'alldebrid.resolve_ad', 'play': 'true'}
-				down_file_params = {**params, 'mode': 'downloader', 'action': 'cloud.alldebrid'}
+				params = {'id': item['l'], 'url': item['l'], 'image': default_icon}
+				params.update({'name': item['n'], 'scrape_provider': 'ad_cloud', 'direct_debrid_link': 'false'})
+				url_params = {**params, 'mode': 'media_play'}
+				down_file_params = {**params, 'mode': 'downloader', 'action': 'ad_cloud'}
 				cm_append((down_str, 'RunPlugin(%s)' % build_url(down_file_params)))
 				url = build_url(url_params)
 				listitem = make_listitem()
@@ -85,11 +86,12 @@ class Menu(Debrid):
 				cm_append = cm.append
 				name = clean_file_name(item['filename']).upper()
 				size = float(int(item['size']))/1073741824
-				datetime_object = datetime.fromtimestamp(item['date']).strftime('%Y-%m-%d')
+				datetime_object = datetime.fromtimestamp(item['date']).date()
 				display = '%02d | %.2f GB | %s | [I]%s [/I]' % (count, size, datetime_object, name)
-				params = {'name': name, 'url': item['link_dl'], 'image': default_icon}
-				url_params = {**params, 'mode': 'media_play', 'mediatype': 'video'}
-				down_file_params = {**params, 'mode': 'downloader', 'action': 'cloud.alldebrid_direct'}
+				params = {'id': item['link_dl'], 'url': item['link_dl'], 'image': default_icon}
+				params.update({'name': item['filename'], 'scrape_provider': 'ad_cloud'})
+				url_params = {**params, 'mode': 'media_play'}
+				down_file_params = {**params, 'mode': 'downloader', 'action': 'ad_cloud'}
 				cm_append((down_str, 'RunPlugin(%s)' % build_url(down_file_params)))
 				url = build_url(url_params)
 				listitem = make_listitem()
@@ -113,22 +115,17 @@ class Menu(Debrid):
 			username = account_info['username']
 			email = account_info['email']
 			status = 'Premium' if account_info['isPremium'] else 'Not Active'
-			expires = datetime.fromtimestamp(account_info['premiumUntil']).date()
-			days_remaining = (expires - datetime.today().date()).days
+			expires = datetime.fromtimestamp(account_info['premiumUntil'])
+			days_remaining = (expires - datetime.today()).days
 			body = []
 			append = body.append
-			append(ls(32755) % username)
-			append(ls(32756) % email)
+#			append(ls(32756) % email)
+#			append(ls(32755) % username)
 			append(ls(32757) % status)
-			append(ls(32750) % expires)
+			append(ls(32750) % expires.date())
 			append(ls(32751) % days_remaining)
 			kodi_utils.hide_busy_dialog()
-			return kodi_utils.show_text(ls(32063).upper(), '\n\n'.join(body), font_size='large')
+#			return kodi_utils.show_text(ls(32063).upper(), '\n\n'.join(body), font_size='large')
+			return kodi_utils.ok_dialog(ls(32063).upper(), '[CR]'.join(body), top_space=False)
 		except: kodi_utils.hide_busy_dialog()
-
-def resolve_ad(params):
-	url = params['url']
-	resolved_link = Debrid().unrestrict_link(url)
-	if params.get('play', 'false') != 'true' : return resolved_link
-	kodi_utils.player.play(resolved_link)
 

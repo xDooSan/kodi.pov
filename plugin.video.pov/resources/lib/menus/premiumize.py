@@ -43,8 +43,9 @@ class Menu(Debrid):
 				cm_append = cm.append
 				file_type = item['type']
 				name = clean_file_name(item['name']).upper()
-				rename_params = {'mode': 'premiumize.pm_rename', 'file_type': file_type, 'id': item['id'], 'name': item['name']}
 				delete_params = {'mode': 'premiumize.pm_delete', 'id': item['id']}
+				rename_params = {'mode': 'premiumize.pm_rename', 'file_type': file_type, 'id': item['id'], 'name': item['name']}
+				down_file_params = {}
 				if file_type == 'folder':
 					is_folder = True
 					download_string = archive_str
@@ -58,14 +59,16 @@ class Menu(Debrid):
 					delete_params['file_type'] = 'item'
 					string = file_str
 					url_link = item['link']
-					if url_link.startswith('/'): url_link = 'https' + url_link
+					if url_link.startswith('/'): url_link = 'https:/' + url_link
 					size = item['size']
 					display_size = float(int(size))/1073741824
 					display = '%02d | [B]%s[/B] | %.2f GB | [I]%s [/I]' % (count, file_str, display_size, name)
-					url_params = {'mode': 'media_play', 'url': url_link, 'mediatype': 'video'}
-					down_file_params = {'mode': 'downloader', 'action': 'cloud.premiumize', 'name': item['name'], 'url': url_link, 'image': default_icon}
-					cm_append((download_string, 'RunPlugin(%s)' % build_url(down_file_params)))
+					params = {'id': url_link, 'url': url_link, 'image': default_icon}
+					params.update({'name': item['name'], 'scrape_provider': 'pm_cloud'})
+					url_params = {**params, 'mode': 'media_play'}
+					down_file_params = {**params, 'mode': 'downloader', 'action': 'pm_cloud'}
 				cm_append(('[B]%s %s[/B]' % (delete_str, string.capitalize()), 'RunPlugin(%s)' % build_url(delete_params)))
+				if down_file_params: cm_append((download_string, 'RunPlugin(%s)' % build_url(down_file_params)))
 				cm_append((rename_str % file_type.capitalize(), 'RunPlugin(%s)' % build_url(rename_params)))
 				url = build_url(url_params)
 				listitem = make_listitem()
@@ -95,12 +98,14 @@ class Menu(Debrid):
 					is_folder = False
 					details = self.get_item_details(item['file_id'])
 					url_link = details['link']
-					if url_link.startswith('/'): url_link = 'https' + url_link
+					if url_link.startswith('/'): url_link = 'https:/' + url_link
 					size = details['size']
 					display_size = float(int(size))/1073741824
 					display = '%02d | %.2f%% | [B]%s[/B] | %.2f GB | [I]%s [/I]' % (count, progress, file_str, display_size, name)
-					url_params = {'mode': 'media_play', 'url': url_link, 'mediatype': 'video'}
-					down_file_params = {'mode': 'downloader', 'mediatype': 'cloud.premiumize', 'name': item['name'], 'url': url_link, 'image': default_icon}
+					params = {'id': url_link, 'url': url_link, 'image': default_icon}
+					params.update({'name': item['name'], 'scrape_provider': 'pm_cloud'})
+					url_params = {**params, 'mode': 'media_play'}
+					down_file_params = {**params, 'mode': 'downloader', 'action': 'pm_cloud'}
 					cm_append((down_str, 'RunPlugin(%s)' % build_url(down_file_params)))
 				url = build_url(url_params)
 				listitem = make_listitem()
@@ -114,7 +119,7 @@ class Menu(Debrid):
 	def cloud_delete(self, file_type, file_id):
 		if not kodi_utils.confirm_dialog(): return
 		result = self.delete_object(file_type, file_id)
-		if not result: return kodi_utils.ok_dialog(text=32574, top_space=True)
+		if not result: return kodi_utils.ok_dialog(text=32574)
 		self.clear_cache()
 		kodi_utils.container_refresh()
 
@@ -122,7 +127,7 @@ class Menu(Debrid):
 		new_name = kodi_utils.dialog.input('POV', defaultt=current_name)
 		if not new_name: return
 		result = self.rename_cache_item(file_type, file_id, new_name)
-		if not result: return kodi_utils.ok_dialog(text=32574, top_space=True)
+		if not result: return kodi_utils.ok_dialog(text=32574)
 		self.clear_cache()
 		kodi_utils.container_refresh()
 
@@ -132,23 +137,27 @@ class Menu(Debrid):
 		try:
 			kodi_utils.show_busy_dialog()
 			account_info = self.account_info()
-			customer_id = account_info['customer_id']
+			username = account_info['customer_id']
 			if account_info['premium_until']:
-				expires = datetime.fromtimestamp(account_info['premium_until']).date()
-				days_remaining = (expires - datetime.today().date()).days
+				expires = datetime.fromtimestamp(account_info['premium_until'])
+				days_remaining = (expires - datetime.today()).days
 			else: expires, days_remaining = 'Expired', 'None'
 			points_used = int(math.floor(float(account_info['space_used']) / 1073741824.0))
 			space_used = float(int(account_info['space_used']))/1073741824
 			percentage_used = str(round(float(account_info['limit_used']) * 100.0, 1))
 			body = []
 			append = body.append
-			append(ls(32749) % customer_id)
-			append(ls(32750) % expires)
+#			append(ls(32749) % username)
+			if account_info['premium_until']:
+				append(ls(32750) % expires.date())
+			else: append(ls(32750) % expires)
 			append(ls(32751) % days_remaining)
-			append(ls(32752) % points_used)
-			append(ls(32753) % space_used)
+#			append(ls(32752) % points_used)
+#			append(ls(32753) % space_used)
 			append(ls(32754) % (percentage_used + '%'))
+			append('%s   %s ' % (ls(32752) % points_used, ls(32753) % space_used))
 			kodi_utils.hide_busy_dialog()
-			return kodi_utils.show_text(ls(32061).upper(), '\n\n'.join(body), font_size='large')
+#			return kodi_utils.show_text(ls(32061).upper(), '\n\n'.join(body), font_size='large')
+			return kodi_utils.ok_dialog(ls(32061).upper(), '[CR]'.join(body), top_space=False)
 		except: kodi_utils.hide_busy_dialog()
 
