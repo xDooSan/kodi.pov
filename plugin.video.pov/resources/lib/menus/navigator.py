@@ -32,8 +32,8 @@ class Navigator:
 		discover_str, his_str, help_str = ls(32451), ls(32486), ls(32487)
 		movh_str, tvh_str = '%s %s' % (mov_str, his_str), '%s %s' % (tv_str, his_str)
 		n_ins = _in_str % (discover_str.upper(), '')
-		self._add_item({'mode': 'discover.movie', 'mediatype': 'movie',    'name': mov_str }, 'discover.png', n_ins)
-		self._add_item({'mode': 'discover.tvshow', 'mediatype': 'tvshow',  'name': tv_str  }, 'discover.png', n_ins)
+		self._add_item({'mode': 'discover.router', 'mediatype': 'movie',   'name': mov_str }, 'discover.png', n_ins)
+		self._add_item({'mode': 'discover.router', 'mediatype': 'tvshow',  'name': tv_str  }, 'discover.png', n_ins)
 		self._add_item({'mode': 'discover.history', 'mediatype': 'movie',  'name': movh_str}, 'discover.png', n_ins)
 		self._add_item({'mode': 'discover.history', 'mediatype': 'tvshow', 'name': tvh_str }, 'discover.png', n_ins)
 		self._add_item({'mode': 'discover.help',                           'name': help_str}, 'discover.png', n_ins, False)
@@ -390,13 +390,13 @@ class Navigator:
 
 	def folder_navigator(self):
 		import os
-		from modules.utils import clean_file_name, normalize
+		from modules.source_utils import clean_file_name
 		def _process():
 			for item, isFolder in items:
 				try:
 					url = os.path.join(folder_path, item)
 					listitem = make_listitem()
-					listitem.setLabel(clean_file_name(normalize(item)))
+					listitem.setLabel(clean_file_name(item))
 					listitem.setArt({'fanart': fanart})
 					yield (url, listitem, isFolder)
 				except: pass

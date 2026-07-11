@@ -4,7 +4,7 @@ from operator import itemgetter
 from concurrent.futures import ThreadPoolExecutor
 from caches import trakt_cache
 from caches.main_cache import cache_object
-from indexers.metadata import movie_external_id, tvshow_external_id
+from indexers.tmdb_api import movie_external_id, tvshow_external_id
 from modules import kodi_utils, settings
 from modules.cache import check_databases
 from modules.utils import sort_list, sort_for_article, make_thread_list, jsondate_to_datetime, paginate_list, get_datetime, TaskPool
@@ -46,8 +46,8 @@ def call_trakt(path, params=None, data=None, with_auth=True, method=None, pagina
 		logger('trakt error', str(e))
 
 def _get_trakt_paginated_list(url):
-	try: params = {'limit': 250 if get_setting('trakt.limit') == 'true' else 1000, 'page': 1}
-	except: params = {'limit': 250, 'page': 1}
+	if 'extended=progress' in url: params = {'limit': 100, 'page': 1}
+	else: params = {'limit': 250, 'page': 1}
 	try: items, pages = call_trakt(url, params=params, pagination=True)
 	except: return []
 	if pages <= 1: return items
@@ -89,7 +89,7 @@ def trakt_movies_trending(page_no):
 
 def trakt_movies_trending_recent(page_no):
 	year = get_datetime().year
-	params = {'limit': 250, 'page': page_no, 'years': '%s-%s' % (year-1, year)}
+	params = {'languages': 'en', 'limit': 250, 'page': page_no, 'years': '%s-%s' % (year-1, year)}
 	string = 'trakt_movies_trending_recent_%s' % page_no
 	url = {'path': 'movies/trending', 'params': params, 'with_auth': False, 'pagination': True}
 	return cache_object(call_trakt, string, url, expiration=EXPIRES_2_DAYS)
@@ -108,7 +108,7 @@ def trakt_tv_trending(page_no):
 
 def trakt_tv_trending_recent(page_no):
 	year = get_datetime().year
-	params = {'limit': 250, 'page': page_no, 'years': '%s-%s' % (year-1, year)}
+	params = {'languages': 'en', 'limit': 250, 'page': page_no, 'years': '%s-%s' % (year-1, year)}
 	string = 'trakt_tv_trending_recent_%s' % page_no
 	url = {'path': 'shows/trending', 'params': params , 'with_auth': False, 'pagination': True}
 	return cache_object(call_trakt, string, url, expiration=EXPIRES_2_DAYS)
@@ -541,11 +541,12 @@ def trakt_get_activity():
 def trakt_sync_activities_thread(*args, **kwargs):
 	Thread(target=trakt_sync_activities, args=args, kwargs=kwargs).start()
 
-def trakt_sync_activities(force_update=False, init_callback=None):
+def trakt_sync_activities(force_update=False, init_callback=None, monitor=None):
 	def _compare(latest, cached):
 		try: return latest > cached
 		except: return True
 	if not get_setting('trakt_user', ''): return 'no account'
+	if monitor and monitor.abortRequested(): return
 	if callable(init_callback): init_callback()
 	elif init_callback is True: trakt_expires()
 	else: pass

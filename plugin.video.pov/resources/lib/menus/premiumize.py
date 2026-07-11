@@ -1,8 +1,7 @@
 import sys
 from debrids.premiumize_api import PremiumizeAPI as Debrid
 from modules import kodi_utils
-from modules.source_utils import supported_video_extensions
-from modules.utils import clean_file_name, normalize
+from modules.source_utils import supported_video_extensions, clean_file_name
 # from modules.kodi_utils import logger
 
 get_setting, set_setting = kodi_utils.get_setting, kodi_utils.set_setting
@@ -14,28 +13,27 @@ default_art = {'icon': default_icon, 'poster': default_icon, 'thumb': default_ic
 extensions = supported_video_extensions()
 
 class Menu(Debrid):
-	def run(self, params, *args):
+	def run(self, params):
 		if   '_delete' in params['mode']:
 			return self.cloud_delete(params['file_type'], params['id'])
 		elif '_rename' in params['mode']:
 			return self.cloud_rename(params['file_type'], params['id'], params['name'])
 		elif '_torrent_cloud' in params['mode']:
-			args = params.get('id'), params.get('folder_name')
-			items = self.user_cloud(args[0])['content']
+			if params.get('id'): items = self.user_folder(params['id'])
+			else: items = self.user_cloud()
 			_builder = self.torrent_cloud
 		elif '_downloads' in params['mode']:
-			items = self.downloads()['transfers']
+			items = self.downloads()
 			_builder = self.browse_downloads
 		else: return getattr(self, params['mode'].split('.')[-1])()
 		__handle__ = int(sys.argv[1])
-		kodi_utils.add_items(__handle__, list(_builder(items, *args)))
+		kodi_utils.add_items(__handle__, list(_builder(items)))
 		kodi_utils.set_content(__handle__, 'files')
 		kodi_utils.end_directory(__handle__)
 		kodi_utils.set_view_mode('view.premium')
 
-	def torrent_cloud(self, items, folder_id=None, folder_name=None):
+	def torrent_cloud(self, items):
 		items.sort(key=lambda k: k['name'])
-		items.sort(key=lambda k: k['type'], reverse=True)
 		for count, item in enumerate(items, 1):
 			try:
 				if not ('link' in item and item['link'].lower().endswith(tuple(extensions))) and item['type'] != 'folder': continue
@@ -52,7 +50,7 @@ class Menu(Debrid):
 					delete_params['file_type'] = 'folder'
 					string = folder_str
 					display = '%02d | [B]%s[/B] | [I]%s [/I]' % (count, folder_str, name)
-					url_params = {'mode': 'premiumize.pm_torrent_cloud', 'id': item['id'], 'folder_name': normalize(item['name'])}
+					url_params = {'mode': 'premiumize.pm_torrent_cloud', 'id': item['id']}
 				else:
 					is_folder = False
 					download_string = down_str
@@ -89,13 +87,17 @@ class Menu(Debrid):
 				message = '[CR]'.join(item['message'].split(', '))
 				status, progress = item['status'], item['progress']
 				progress = 100 if status == 'finished' else progress or 0
+				delete_params = {'mode': 'premiumize.pm_delete', 'file_type': 'transfer', 'id': item['id']}
+				down_file_params = {}
 				if file_type == 'folder':
 					is_folder = True if status == 'finished' else False
+					string = folder_str
 					display = '%02d | %.2f%% | [B]%s[/B] | [I]%s [/I]' % (count, progress, folder_str, name)
-					if is_folder: url_params = {'mode': 'premiumize.pm_torrent_cloud', 'id': item['folder_id'], 'folder_name': normalize(item['name'])}
+					if is_folder: url_params = {'mode': 'premiumize.pm_torrent_cloud', 'id': item['folder_id'], 'folder_name': clean_file_name(item['name'])}
 					else: url_params = {'mode': 'premiumize.pm_downloads'}
 				else:
 					is_folder = False
+					string = file_str
 					details = self.get_item_details(item['file_id'])
 					url_link = details['link']
 					if url_link.startswith('/'): url_link = 'https:/' + url_link
@@ -106,7 +108,8 @@ class Menu(Debrid):
 					params.update({'name': item['name'], 'scrape_provider': 'pm_cloud'})
 					url_params = {**params, 'mode': 'media_play'}
 					down_file_params = {**params, 'mode': 'downloader', 'action': 'pm_cloud'}
-					cm_append((down_str, 'RunPlugin(%s)' % build_url(down_file_params)))
+				cm_append(('[B]%s %s[/B]' % (delete_str, string.capitalize()), 'RunPlugin(%s)' % build_url(delete_params)))
+				if down_file_params: cm_append((down_str, 'RunPlugin(%s)' % build_url(down_file_params)))
 				url = build_url(url_params)
 				listitem = make_listitem()
 				listitem.setLabel(display)

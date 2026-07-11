@@ -32,7 +32,7 @@ packages_path  = 'special://home/addons/packages/'
 current_dbs           = ('settings.xml', 'debridcache.db', 'watched.db', 'maincache.db', 'metacache.db', 'fenomundesirables.db',
 						'navigator.db', 'providerscache.db', 'traktcache.db', 'mdblcache.db', 'views.db', 'fenomcache.db')
 indicators_dict       = {0: watched_db, 1: trakt_db, 2: mdbl_db}
-myvideos_db_paths     = {19: '119', 20: '121', 21: '131', 22: '139'}
+myvideos_db_paths     = {19: '119', 20: '121', 21: '131', 22: '146'}
 
 def logger(heading, function):
 	xbmc.log('>> %s <<: %s' % (heading, function), 1)
@@ -57,7 +57,7 @@ def addon(addon_id='plugin.video.pov'):
 	return Addon(id=addon_id)
 
 def addon_installed(addon_id):
-	return get_visibility('System.HasAddon(%s)' % addon_id)
+	return get_visibility('System.AddonIsEnabled(%s)' % addon_id)
 
 def add_item(handle, url, listitem, isFolder):
 	xbmcplugin.addDirectoryItem(handle, url, listitem, isFolder)
@@ -184,9 +184,6 @@ def ok_dialog(heading='POV', text='', highlight='dodgerblue', ok_label=local_str
 	if not text: top_space, text = True, local_string(32760)
 	if top_space: text = '[CR]%s' % text
 	return dialog.ok(heading, text)
-#	kwargs = {'heading': heading, 'text': text, 'highlight': highlight, 'ok_label': ok_label}
-#	from windows import open_window
-#	return open_window(('windows.select_ok', 'OK'), 'select_ok.xml', **kwargs)
 
 def confirm_dialog(heading='POV', text='', highlight='dodgerblue', ok_label=local_string(32839), cancel_label=local_string(32840), top_space=True, default_control=11):
 	if isinstance(heading, int): heading = local_string(heading)
@@ -196,9 +193,6 @@ def confirm_dialog(heading='POV', text='', highlight='dodgerblue', ok_label=loca
 	if not text: text = '[CR]%s' % local_string(32580)
 	elif top_space: text = '[CR]%s' % text
 	return dialog.yesno(heading, text, cancel_label, ok_label)
-#	kwargs = {'heading': heading, 'text': text, 'highlight': highlight, 'ok_label': ok_label, 'cancel_label': cancel_label, 'default_control': default_control}
-#	from windows import open_window
-#	return open_window(('windows.select_ok', 'YesNo'), 'select_ok.xml', **kwargs)
 
 def select_dialog(function_list, **kwargs):
 	def _builder():
@@ -225,11 +219,6 @@ def select_dialog(function_list, **kwargs):
 	if selection in ([], -1, None): return None
 	if multi_choice: return [function_list[i] for i in selection]
 	return function_list[selection]
-#	from windows import open_window
-#	selection = open_window(('windows.select_ok', 'Select'), 'select.xml', **kwargs)
-#	if selection in ([], None): return None
-#	if kwargs.get('multi_choice', 'false') == 'true': return [function_list[i] for i in selection]
-#	return function_list[selection]
 
 def show_text(heading, text=None, file=None, font_size='small', kodi_log=False):
 	if isinstance(heading, int): heading = local_string(heading)
@@ -248,8 +237,6 @@ def show_text(heading, text=None, file=None, font_size='small', kodi_log=False):
 		text = ''.join(i for i in reversed(lines) if any(x in i.lower() for x in ('exception', 'error')))
 	if not text: return notification(32760)
 	return dialog.textviewer(heading, text)
-#	from windows import open_window
-#	return open_window(('windows.textviewer', 'TextViewer'), 'textviewer.xml', heading=heading, text=text, font_size=font_size)
 
 def notification(line1, time=3000, icon=None, sound=False):
 	if isinstance(line1, int): line1 = local_string(line1)
@@ -291,25 +278,17 @@ def set_view_properties():
 	view_ids = dbcur.fetchall()
 	for item in view_ids: set_property('pov_%s' % item[0], item[1])
 
-def set_view_mode(view_type, content='files'):
-	if external_browse(): return
+def set_view_mode(view_type, content='files', is_widget=None):
+	if is_widget is True or (is_widget is None and external_browse()): return
 	view_id = get_property('pov_%s' % view_type)
-	hold = 0
-	if not view_id:
-		try:
-			dbcon = database_connect(views_db, isolation_level=None)
-			dbcur = dbcon.cursor()
-			dbcur.execute("""SELECT view_id FROM views WHERE view_type = ?""", (str(view_type),))
-			view_id = dbcur.fetchone()[0]
-		except: return
+	if not view_id: return
 	try:
-		sleep(100)
-		while container_content() != content:
-			hold += 1
-			if hold < 5000: sleep(1)
-			else: return
-		if view_id: execute_builtin('Container.SetViewMode(%s)' % view_id)
-	except: return
+		for _ in range(60):
+			if container_content() == content: break
+			sleep(50)
+		else: return
+		execute_builtin('Container.SetViewMode(%s)' % view_id)
+	except: pass
 
 def clear_view(view_type):
 	if not confirm_dialog(): return
@@ -347,11 +326,11 @@ def remove_meta_keys(dict_item, dict_removals):
 	for k in dict_removals: dict_item.pop(k, None)
 	return dict_item
 
-def volume_checker(volume_setting):
-	# 0% == -60db, 100% == 0db
-	try:
+def volume_checker(volume_setting=None):
+	try: # 0% == -60db, 100% == 0db
 		if get_visibility('Player.Muted'): return
 		from modules.utils import string_alphanum_to_num
+		if not volume_setting: volume_setting = get_setting('volumecheck.percent', '100')
 		max_volume = int(min(int(volume_setting), 100))
 		current_volume_db = int(string_alphanum_to_num(get_infolabel('Player.Volume').split('.')[0]))
 		current_volume_percent = int(100 - ((float(current_volume_db)/60)*100))
@@ -436,11 +415,12 @@ def clean_settings():
 
 def open_settings(query, addon='plugin.video.pov'):
 	hide_busy_dialog()
-	if not query: return Addon(id=addon).openSettings()
+	execute_builtin('Addon.OpenSettings(%s)' % addon)
+	if not query: return
 	try:
-		button, control = 100, 80
+		if get_kodi_version() < 20: button, control = 100, 80
+		else: button, control = 200, 180
 		menu, function = query.split('.')
-		execute_builtin('Addon.OpenSettings(%s)' % addon)
 		execute_builtin('SetFocus(%i)' % (int(menu) - button))
 		execute_builtin('SetFocus(%i)' % (int(function) - control))
 	except: notification(32574)

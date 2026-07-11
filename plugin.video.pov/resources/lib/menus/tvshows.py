@@ -7,7 +7,6 @@ from modules import kodi_utils, settings
 from modules.utils import manual_function_import, get_datetime, TaskPool
 # logger = kodi_utils.logger
 
-tv_meta_function = tvshow_meta
 KODI_VERSION, make_cast_list = kodi_utils.get_kodi_version(), kodi_utils.make_cast_list
 string, ls, build_url, get_infolabel = str, kodi_utils.local_string, kodi_utils.build_url, kodi_utils.get_infolabel
 run_plugin, container_refresh, container_update = 'RunPlugin(%s)', 'Container.Refresh(%s)', 'Container.Update(%s)'
@@ -38,15 +37,18 @@ class TVShows:
 		self.include_year_in_title = settings.include_year_in_title('tvshow')
 		self.open_extras = settings.extras_open_action('tvshow')
 		self.cm_sort = settings.context_menu_sort()
-		self.is_folder = False if self.open_extras else True
+		self.smart_play = settings.smart_play_enabled()
 		self.is_widget = kodi_utils.external_browse()
+		if self.open_extras or self.smart_play == 2 or (self.smart_play == 1 and self.is_widget):
+			self.is_folder = False
+		else: self.is_folder = True
 		self.widget_hide_watched = self.is_widget and self.meta_user_info['widget_hide_watched']
 		if not self.exit_list_params: self.exit_list_params = get_infolabel('Container.FolderPath')
 		self.art_provider = (*settings.get_art_provider(), poster_empty, fanart_empty)
 
 	def build_tvshow_content(self, position, tag):
 		try:
-			meta = tv_meta_function(self.id_type, tag, self.meta_user_info, self.current_date)
+			meta = tvshow_meta(self.id_type, tag, self.meta_user_info, self.current_date)
 			meta_get = meta.get
 			if not meta or meta_get('blank_entry', False): return
 			playcount, overlay, total_watched, total_unwatched = get_watched_status_tvshow(
@@ -63,15 +65,12 @@ class TVShows:
 			tmdb_id, tvdb_id, imdb_id = meta_get('tmdb_id'), meta_get('tvdb_id'), meta_get('imdb_id')
 			try: tags = [i for i in (imdb_id, string(tmdb_id), string(tvdb_id)) if i not in ('', 'None', None)]
 			except: tags = []
-			if self.all_episodes and self.all_episodes == 1 and total_seasons > 1: url_params = build_url({
-				'mode': 'build_season_list', 'tmdb_id': tmdb_id
-			})
-			elif self.all_episodes: url_params = build_url({
-				'mode': 'build_episode_list', 'tmdb_id': tmdb_id, 'season': 'all'
-			})
-			else: url_params = build_url({
-				'mode': 'build_season_list', 'tmdb_id': tmdb_id
-			})
+			valid_seasons = (True for i in meta_get('season_data') if i['episode_count'])
+			if self.smart_play == 2 or (self.smart_play == 1 and self.is_widget):
+				url_params = build_url({'mode': 'smart_play_media', 'tmdb_id': tmdb_id})
+			elif self.all_episodes == 2 or (self.all_episodes == 1 and sum(valid_seasons) == 1):
+				url_params = build_url({'mode': 'build_episode_list', 'tmdb_id': tmdb_id, 'season': 'all'})
+			else: url_params = build_url({'mode': 'build_season_list', 'tmdb_id': tmdb_id})
 			extras_params = build_url({
 				'mode': 'extras_menu_choice', 'mediatype': 'tvshow',
 				'tmdb_id': tmdb_id, 'is_widget': self.is_widget
@@ -284,5 +283,5 @@ class Menu(TVShows):
 		kodi_utils.set_sort_method(__handle__, content_type)
 		kodi_utils.set_content(__handle__, content_type)
 		kodi_utils.end_directory(__handle__, False if self.is_widget else None)
-		kodi_utils.set_view_mode(view_type, content_type)
+		kodi_utils.set_view_mode(view_type, content_type, self.is_widget)
 

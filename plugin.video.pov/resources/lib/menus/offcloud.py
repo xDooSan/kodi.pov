@@ -1,8 +1,7 @@
 import sys
 from debrids.offcloud_api import OffcloudAPI as Debrid
 from modules import kodi_utils
-from modules.source_utils import supported_video_extensions
-from modules.utils import clean_file_name, normalize
+from modules.source_utils import supported_video_extensions, clean_file_name
 # from modules.kodi_utils import logger
 
 get_setting, set_setting = kodi_utils.get_setting, kodi_utils.set_setting
@@ -18,8 +17,7 @@ class Menu(Debrid):
 		if   '_delete' in params['mode']:
 			return self.cloud_delete(params['folder_id'])
 		elif '_browse_cloud' in params['mode']:
-			items = self.torrent_info(params['folder_id'])
-			items = items['files']
+			items = self.user_folder(params['folder_id'])
 			_builder = self.browse_cloud
 		elif '_torrent_cloud' in params['mode']:
 			items = self.user_cloud()
@@ -37,7 +35,7 @@ class Menu(Debrid):
 				cm = []
 				cm_append = cm.append
 				request_id, folder_name = item['requestId'], item['fileName']
-				display = '%02d | [B]%s[/B] | [I]%s [/I]' % (count, folder_str, clean_file_name(normalize(folder_name)).upper())
+				display = '%02d | [B]%s[/B] | [I]%s [/I]' % (count, folder_str, clean_file_name(folder_name).upper())
 				url_params = {'mode': 'offcloud.oc_browse_cloud', 'folder_id': request_id}
 				delete_params = {'mode': 'offcloud.oc_delete', 'folder_id': request_id}
 				cm_append(('[B]%s %s[/B]' % (delete_str, folder_str.capitalize()), 'RunPlugin(%s)' % build_url(delete_params)))

@@ -23,23 +23,13 @@ def check_databases():
 	dbcon.execute("""CREATE TABLE IF NOT EXISTS maincache (id TEXT UNIQUE, data TEXT, expires INTEGER)""")
 	dbcon.close()
 	dbcon = database_connect(navigator_db) # Navigator
-	dbcon.execute("""CREATE TABLE IF NOT EXISTS navigator
-					(list_name TEXT, list_type TEXT, list_contents TEXT, UNIQUE (list_name, list_type))""")
+	dbcon.execute("""CREATE TABLE IF NOT EXISTS navigator (list_name TEXT, list_type TEXT, list_contents TEXT, UNIQUE (list_name, list_type))""")
 	dbcon.close()
 	dbcon = database_connect(metacache_db) # Meta Cache
-	dbcon.execute("""CREATE TABLE IF NOT EXISTS metadata
-					(db_type TEXT not null, tmdb_id TEXT not null, imdb_id TEXT, tvdb_id TEXT, meta TEXT, expires INTEGER, UNIQUE (db_type, tmdb_id))""")
+	dbcon.execute("""CREATE TABLE IF NOT EXISTS metadata (db_type TEXT not null, tmdb_id TEXT not null, imdb_id TEXT, tvdb_id TEXT, meta TEXT, expires INTEGER, UNIQUE (db_type, tmdb_id))""")
 	dbcon.execute("""CREATE TABLE IF NOT EXISTS season_metadata (tmdb_id TEXT not null UNIQUE, meta TEXT, expires INTEGER)""")
 	dbcon.execute("""CREATE TABLE IF NOT EXISTS function_cache (string_id TEXT not null, data TEXT, expires INTEGER)""")
 	dbcon.execute("""CREATE INDEX IF NOT EXISTS pov_select_id_media ON metadata (tmdb_id, db_type)""")
-	dbcon.close()
-	dbcon = database_connect(watched_db) # Watched Status
-	dbcon.execute("""CREATE TABLE IF NOT EXISTS watched_status
-					(db_type TEXT, media_id TEXT, season INTEGER, episode INTEGER, last_played TEXT, title TEXT, UNIQUE (db_type, media_id, season, episode))""")
-	dbcon.execute("""CREATE TABLE IF NOT EXISTS progress
-					(db_type TEXT, media_id TEXT, season INTEGER, episode INTEGER, resume_point TEXT, curr_time TEXT,
-					last_played TEXT, resume_id INTEGER, title TEXT, UNIQUE (db_type, media_id, season, episode))""")
-	dbcon.execute("""CREATE INDEX IF NOT EXISTS pov_ws_in_progress_episodes ON watched_status (db_type, media_id, season DESC, episode DESC)""")
 	dbcon.close()
 	dbcon = database_connect(favorites_db) # Favorites
 	dbcon.execute("""CREATE TABLE IF NOT EXISTS favorites (db_type TEXT, tmdb_id TEXT, title TEXT, UNIQUE (db_type, tmdb_id))""")
@@ -52,27 +42,23 @@ def check_databases():
 	dbcon.execute("""CREATE TABLE IF NOT EXISTS debrid_data (hash TEXT not null, debrid TEXT not null, cached TEXT, expires INTEGER, UNIQUE (hash, debrid))""")
 	dbcon.close()
 	dbcon = database_connect(external_db) # External Providers Cache
-	dbcon.execute("""CREATE TABLE IF NOT EXISTS results_data
-					(provider TEXT, db_type TEXT, tmdb_id TEXT, title TEXT, year INTEGER, season TEXT, episode TEXT, results TEXT,
-					expires INTEGER, UNIQUE (provider, db_type, tmdb_id, title, year, season, episode))""")
+	dbcon.execute("""CREATE TABLE IF NOT EXISTS results_data (provider TEXT, db_type TEXT, tmdb_id TEXT, title TEXT, year INTEGER, season TEXT, episode TEXT, results TEXT, expires INTEGER, UNIQUE (provider, db_type, tmdb_id, title, year, season, episode))""")
+	dbcon.close()
+	watched_schema = (
+	"""CREATE TABLE IF NOT EXISTS watched_status (db_type TEXT, media_id TEXT, season INTEGER, episode INTEGER, last_played TEXT, title TEXT, UNIQUE (db_type, media_id, season, episode))""",
+	"""CREATE TABLE IF NOT EXISTS progress (db_type TEXT, media_id TEXT, season INTEGER, episode INTEGER, resume_point TEXT, curr_time TEXT, last_played TEXT, resume_id INTEGER, title TEXT, UNIQUE (db_type, media_id, season, episode))""",
+	"""CREATE INDEX IF NOT EXISTS pov_ws_in_progress_episodes ON watched_status (db_type, media_id, season DESC, episode DESC)"""
+	)
+	dbcon = database_connect(watched_db) # Watched Status
+	for i in watched_schema: dbcon.execute(i)
 	dbcon.close()
 	dbcon = database_connect(trakt_db) # Trakt
 	dbcon.execute("""CREATE TABLE IF NOT EXISTS trakt_data (id TEXT UNIQUE, data TEXT)""")
-	dbcon.execute("""CREATE TABLE IF NOT EXISTS watched_status
-					(db_type TEXT, media_id TEXT, season INTEGER, episode INTEGER, last_played TEXT, title TEXT, UNIQUE (db_type, media_id, season, episode))""")
-	dbcon.execute("""CREATE TABLE IF NOT EXISTS progress
-					(db_type TEXT, media_id TEXT, season INTEGER, episode INTEGER, resume_point TEXT, curr_time TEXT,
-					last_played TEXT, resume_id INTEGER, title TEXT, UNIQUE (db_type, media_id, season, episode))""")
-	dbcon.execute("""CREATE INDEX IF NOT EXISTS pov_ws_in_progress_episodes ON watched_status (db_type, media_id, season DESC, episode DESC)""")
+	for i in watched_schema: dbcon.execute(i)
 	dbcon.close()
 	dbcon = database_connect(mdbl_db) # MDBList
 	dbcon.execute("""CREATE TABLE IF NOT EXISTS mdbl_data (id TEXT UNIQUE, data TEXT)""")
-	dbcon.execute("""CREATE TABLE IF NOT EXISTS watched_status
-					(db_type TEXT, media_id TEXT, season INTEGER, episode INTEGER, last_played TEXT, title TEXT, UNIQUE (db_type, media_id, season, episode))""")
-	dbcon.execute("""CREATE TABLE IF NOT EXISTS progress
-					(db_type TEXT, media_id TEXT, season INTEGER, episode INTEGER, resume_point TEXT, curr_time TEXT,
-					last_played TEXT, resume_id INTEGER, title TEXT, UNIQUE (db_type, media_id, season, episode))""")
-	dbcon.execute("""CREATE INDEX IF NOT EXISTS pov_ws_in_progress_episodes ON watched_status (db_type, media_id, season DESC, episode DESC)""")
+	for i in watched_schema: dbcon.execute(i)
 	dbcon.close()
 
 def remove_old_databases():

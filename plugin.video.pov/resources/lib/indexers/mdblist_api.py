@@ -3,7 +3,7 @@ from threading import Thread
 from operator import itemgetter
 from caches import mdbl_cache
 from caches.main_cache import cache_object
-from indexers.metadata import movie_external_id, tvshow_external_id
+from indexers.tmdb_api import movie_external_id, tvshow_external_id
 from modules import kodi_utils, settings
 from modules.cache import check_databases
 from modules.utils import make_thread_list, sort_for_article, jsondate_to_datetime, paginate_list, get_datetime, TaskPool
@@ -325,11 +325,12 @@ def mdbl_get_activity():
 def mdbl_sync_activities_thread(*args, **kwargs):
 	Thread(target=mdbl_sync_activities, args=args, kwargs=kwargs).start()
 
-def mdbl_sync_activities(force_update=False):
+def mdbl_sync_activities(force_update=False, monitor=None):
 	def _compare(latest, cached):
 		try: return (latest or '') > (cached or '')
 		except: return True
 	if not get_setting('mdblist_user', ''): return 'no account'
+	if monitor and monitor.abortRequested(): return
 	if force_update:
 		check_databases()
 		mdbl_cache.clear_all_mdbl_cache_data(refresh=False)

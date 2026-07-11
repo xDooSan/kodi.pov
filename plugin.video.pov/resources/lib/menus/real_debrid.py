@@ -1,8 +1,8 @@
 import sys
 from debrids.real_debrid_api import RealDebridAPI as Debrid
 from modules import kodi_utils
-from modules.source_utils import supported_video_extensions
-from modules.utils import clean_file_name, normalize, jsondate_to_datetime, get_datetime
+from modules.source_utils import supported_video_extensions, clean_file_name
+from modules.utils import jsondate_to_datetime, get_datetime
 # from modules.kodi_utils import logger
 
 get_setting, set_setting = kodi_utils.get_setting, kodi_utils.set_setting
@@ -18,9 +18,7 @@ class Menu(Debrid):
 		if   '_delete' in params['mode']:
 			return self.cloud_delete(params['id'], params['cache_type'])
 		elif '_browse_cloud' in params['mode']:
-			torrent_info = self.torrent_info(params['id'])
-			selected = (i for i in torrent_info['files'] if i['selected'])
-			items = [{**i, 'url_link': link} for i, link in zip(selected, torrent_info['links'])]
+			items = self.user_folder(params['id'])
 			_builder = self.browse_cloud
 		elif '_torrent_cloud' in params['mode']:
 			items = self.user_cloud()
@@ -40,7 +38,7 @@ class Menu(Debrid):
 			try:
 				cm = []
 				cm_append = cm.append
-				display = '%02d | [B]%s[/B] | [I]%s [/I]' % (count, folder_str, clean_file_name(normalize(item['filename'])).upper())
+				display = '%02d | [B]%s[/B] | [I]%s [/I]' % (count, folder_str, clean_file_name(item['filename']).upper())
 				url_params = {'mode': 'real_debrid.rd_browse_cloud', 'id': item['id']}
 				delete_params = {'mode': 'real_debrid.rd_delete', 'id': item['id'], 'cache_type': 'torrent'}
 				cm_append(('[B]%s %s[/B]' % (delete_str, folder_str.capitalize()), 'RunPlugin(%s)' % build_url(delete_params)))
@@ -60,7 +58,6 @@ class Menu(Debrid):
 				path = item['path'].lstrip('/')
 				name = clean_file_name(path).upper()
 				url_link = item['url_link']
-				if url_link.startswith('/'): url_link = 'https:/' + url_link
 				size = float(int(item['bytes']))/1073741824
 				display = '%02d | [B]%s[/B] | %.2f GB | [I]%s [/I]' % (count, file_str, size, name)
 				params = {'id': url_link, 'url': url_link, 'image': default_icon}

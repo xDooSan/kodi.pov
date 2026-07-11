@@ -45,7 +45,7 @@ def authorize():
 	service = kodi_utils.dialog.select('My Services', list(_builder()), useDetails=True)
 	if service < 0: return
 	try: success = services[service][1]().set()
-	except Exception as e: kodi_utils.logger('myservices error', str(e))
+	except: kodi_utils.logger('myservices error', f"\n{__import__('traceback').format_exc()}")
 	else: return success
 	return notification(32574)
 
@@ -482,6 +482,7 @@ class TMDBList:
 	def __init__(self):
 		self.read = get_setting('tmdb_read_token')
 		self.token = get_setting('tmdb.token')
+		self.session_id = get_setting('tmdb.session_id')
 		self.headers = {'Authorization': 'Bearer %s' % self.read}
 
 	def base_url(self, path):
@@ -497,6 +498,13 @@ class TMDBList:
 		cls_name = self.__class__.__name__
 		if self.token:
 			if not confirm_dialog(): return
+			data = {'session_id': self.session_id}
+			response = requests.delete(self.base_url('3/authentication/session'), json=data, headers=self.headers, timeout=timeout)
+			result = response.json()
+			if not result['success']: return notification(32574)
+			set_setting('tmdb.session_account_id', '')
+			set_setting('tmdb.session_id', '')
+			set_setting('tmdb.username', '')
 			data = {'access_token': self.token}
 			response = requests.delete(self.base_url('4/auth/access_token'), json=data, headers=self.headers, timeout=timeout)
 			result = response.json()
@@ -504,16 +512,7 @@ class TMDBList:
 			set_setting('tmdb.account_id', '')
 			set_setting('tmdb.token', '')
 			clear_cache('tmdblist', silent=True)
-			notification('Removed %s Authorization' % cls_name)
-			session_id = get_setting('tmdb.session_id')
-			data = {'session_id': session_id}
-			response = requests.delete(self.base_url('3/authentication/session'), json=data, headers=self.headers, timeout=timeout)
-			result = response.json()
-			if not result['success']: return
-			set_setting('tmdb.session_account_id', '')
-			set_setting('tmdb.session_id', '')
-			set_setting('tmdb.username', '')
-			return
+			return notification('Removed %s Authorization' % cls_name)
 
 		response = requests.post(self.base_url('4/auth/request_token'), headers=self.headers, timeout=timeout)
 		result = response.json()

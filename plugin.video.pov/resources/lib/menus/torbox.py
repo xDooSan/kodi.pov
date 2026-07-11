@@ -1,8 +1,7 @@
 import sys
 from debrids.torbox_api import TorBoxAPI as Debrid
 from modules import kodi_utils
-from modules.source_utils import supported_video_extensions
-from modules.utils import clean_file_name, normalize
+from modules.source_utils import supported_video_extensions, clean_file_name
 # from modules.kodi_utils import logger
 
 get_setting, set_setting = kodi_utils.get_setting, kodi_utils.set_setting
@@ -19,11 +18,10 @@ class Menu(Debrid):
 			return self.cloud_delete(params['folder_id'])
 		elif '_browse_cloud' in params['mode']:
 			folder_id, mediatype = params['folder_id'].split(',')
-			items = self.user_cloud(mediatype, folder_id)
+			items = self.user_folder(mediatype, folder_id)
 			_builder = self.browse_cloud
 		elif '_torrent_cloud' in params['mode']:
-			mediatype = params['mediatype']
-			items = self.user_cloud(mediatype)
+			items = self.user_cloud(params['mediatype'])
 			_builder = self.torrent_cloud
 		else: return getattr(self, params['mode'].split('.')[-1])()
 		__handle__ = int(sys.argv[1])
@@ -38,7 +36,7 @@ class Menu(Debrid):
 			try:
 				cm = []
 				cm_append = cm.append
-				display = '%02d | [B]%s[/B] | [I]%s [/I]' % (count, folder_str, clean_file_name(normalize(item['name'])).upper())
+				display = '%02d | [B]%s[/B] | [I]%s [/I]' % (count, folder_str, clean_file_name(item['name']).upper())
 				url_params = {'mode': 'torbox.tb_browse_cloud', 'folder_id': item['folder_id']}
 				delete_params = {'mode': 'torbox.tb_delete', 'folder_id': item['folder_id']}
 				cm_append(('[B]%s %s[/B]' % (delete_str, folder_str.capitalize()), 'RunPlugin(%s)' % build_url(delete_params)))

@@ -82,8 +82,7 @@ class SourceResults(BaseDialog):
 			self.selected = ('play', {**source, 'unrestricted_link': link})
 			return self.close()
 		elif action == self.info_actions:
-			kwargs = {'item': chosen_listitem, 'fanart': self.original_fanart()}
-			self.open_window(('windows.sources', 'ResultsInfo'), 'sources_info.xml', **kwargs)
+			self.open_info_window(chosen_listitem)
 		elif action in self.context_actions:
 			highlight = chosen_listitem.getProperty('tikiskins.highlight')
 #			source = json.loads(chosen_listitem.getProperty('source'))
@@ -94,8 +93,7 @@ class SourceResults(BaseDialog):
 			if 'clear_results_filter' in choice: return self.clear_filter()
 			elif 'results_filter' in choice: return self.filter_results()
 			elif 'results_info' in choice:
-				kwargs = {'item': chosen_listitem, 'fanart': self.original_fanart()}
-				self.open_window(('windows.sources', 'ResultsInfo'), 'sources_info.xml', **kwargs)
+				self.open_info_window(chosen_listitem)
 			elif 'seekable_easynews' in choice:
 				link = Source(source, self.meta).resolve_internal_sources(True)
 				if link is None: return
@@ -196,24 +194,22 @@ class SourceResults(BaseDialog):
 		except: pass
 
 	def set_properties(self):
-		self.poster_main, self.poster_backup, self.fanart_main, self.fanart_backup = get_art_provider()
+		poster_main, poster_backup, fanart_main, fanart_backup = get_art_provider()
+		self.poster = self.meta.get(poster_main) or self.meta.get(poster_backup) or poster_empty
+		self.fanart = self.meta.get(fanart_main) or self.meta.get(fanart_backup) or fanart_empty
 		self.setProperty('tikiskins.window_style', self.window_style)
-		self.setProperty('tikiskins.fanart', self.original_fanart())
-		self.setProperty('tikiskins.poster', self.original_poster())
+		self.setProperty('tikiskins.poster', self.poster)
+		self.setProperty('tikiskins.fanart', self.fanart)
+		self.setProperty('tikiskins.clearlogo', self.meta.get('clearlogo') or '')
 		self.setProperty('tikiskins.title', self.meta['title'])
-		self.setProperty('tikiskins.clearlogo', self.meta['clearlogo'] or '')
 		self.setProperty('tikiskins.plot', self.meta['plot'])
 		self.setProperty('tikiskins.total_results', self.total_results)
 		self.setProperty('tikiskins.filters_ignored', self.filters_ignored)
 		self.setProperty('tikiskins.scrape_time', '%.2f' % self.meta['scrape_time'])
 
-	def original_poster(self):
-		poster = self.meta.get(self.poster_main) or self.meta.get(self.poster_backup) or poster_empty
-		return poster
-
-	def original_fanart(self):
-		fanart = self.meta.get(self.fanart_main) or self.meta.get(self.fanart_backup) or fanart_empty
-		return fanart
+	def open_info_window(self, chosen_listitem):
+			kwargs = {'item': chosen_listitem, 'fanart': self.fanart}
+			self.open_window(('windows.sources', 'ResultsInfo'), 'sources_info.xml', **kwargs)
 
 	def filter_results(self):
 		choices = [(filter_quality, 'quality'), (filter_provider, 'provider'), (filter_title, 'keyword_title'), (filter_extraInfo, 'extra_info')]
@@ -239,19 +235,13 @@ class SourceResults(BaseDialog):
 		else:
 			if main_choice == 'provider':
 				sort_ranks = provider_sort_ranks()
-				sort_ranks['premiumize'] = sort_ranks.pop('premiumize.me')
+				sort_ranks['premiumize'] = sort_ranks.pop('premiumize.me', 99)
 				choice_sorter = sorted(sort_ranks.keys(), key=sort_ranks.get)
 				choice_sorter = [upper(i) for i in choice_sorter]
 			else: choice_sorter = quality_choices
 			filter_property = 'tikiskins.%s' % main_choice
-			duplicates = set()
-			provider_choices = [
-				i.getProperty(filter_property)
-				for i in self.item_list
-				if not (i.getProperty(filter_property) in duplicates or duplicates.add(i.getProperty(filter_property)))
-				and i.getProperty(filter_property) != ''
-			]
-			provider_choices.sort(key=choice_sorter.index)
+			provider_choices = list({i.getProperty(filter_property) for i in self.item_list if i.getProperty(filter_property)})
+			provider_choices.sort(key=lambda x: choice_sorter.index(x) if x in choice_sorter else 999)
 			list_items = [{'line1': item} for item in provider_choices]
 			kwargs = {'items': json.dumps(list_items), 'heading': heading, 'multi_choice': 'true', 'multi_line': 'false'}
 			choice = select_dialog(provider_choices, **kwargs)
