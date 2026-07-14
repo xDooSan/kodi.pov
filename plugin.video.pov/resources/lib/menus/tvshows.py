@@ -1,4 +1,3 @@
-import sys
 from threading import Thread
 from indexers.metadata import tvshow_meta, art_infodict, movie_show_infodict
 from caches.watched_cache import get_watched_info_tv, get_watched_status_tvshow
@@ -180,9 +179,9 @@ class Menu(TVShows):
 		return self.items
 
 	def run(self):
+		__handle__ = int(kodi_utils.argv1())
 		try:
 			params_get = self.params.get
-			__handle__ = int(sys.argv[1])
 			view_type, content_type = 'view.tvshows', 'tvshows'
 			mode, category = params_get('mode'), ls(params_get('name'))
 			try: page_no = int(params_get('new_page', '1'))

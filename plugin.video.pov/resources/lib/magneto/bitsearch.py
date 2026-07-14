@@ -86,6 +86,7 @@ class source:
 				else: continue
 				title = parsed_query.get('dn', ['Unknown'])[-1]
 				name = source_utils.clean_name(title)
+				if not any(x in name.lower() for x in ['multi', 'vf2', 'french', 'vff', 'vfq', 'truefrench']): continue
 
 				if not source_utils.check_title(self.title, self.aliases, name, self.hdlr, self.year): continue
 				name_info = source_utils.info_from_name(name, self.title, self.year, self.hdlr, self.episode_title)
@@ -178,6 +179,7 @@ class source:
 				else: continue
 				title = parsed_query.get('dn', ['Unknown'])[-1]
 				name = source_utils.clean_name(title)
+				if not any(x in name.lower() for x in ['multi', 'vf2', 'french', 'vff', 'vfq', 'truefrench']): continue
 
 				episode_start, episode_end = 0, 0
 				if not self.search_series:
