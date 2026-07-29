@@ -20,9 +20,8 @@ session.mount('https://api.mdblist.com', requests.adapters.HTTPAdapter(pool_maxs
 def call_mdblist(path, params=None, json=None, method=None):
 	headers = None
 	params = params or {}
-	if get_setting('mdblist.refresh', '') != '':
-		headers = {'Authorization': 'Bearer %s' % get_setting('mdblist.token')}
-	else: params['apikey'] = get_setting('mdblist.token')
+	if not bool(get_setting('mdblist.refresh')): params['apikey'] = get_setting('mdblist.token')
+	else: headers = {'Authorization': 'Bearer %s' % get_setting('mdblist.token')}
 	try:
 		response = session.request(
 			method or 'get',
@@ -74,11 +73,10 @@ def mdbl_refresh():
 def mdbl_expires():
 	if not get_setting('mdblist.refresh', ''): return
 	from datetime import datetime, timezone
-	expires = float(get_setting('mdblist.expires', '0'))
 	interval = settings.trakt_sync_interval()[1]
-	current = datetime.now(timezone.utc).timestamp()
-	current = (-1 * current // 1 * -1) + interval
-	if current >= expires: mdbl_refresh()
+	current = int(datetime.now(timezone.utc).timestamp())
+	expires = int(get_setting('mdblist.expires', '0'))
+	if interval + current >= expires: mdbl_refresh()
 
 def mdbl_top_lists():
 	string = 'mdbl_top_lists'
@@ -147,9 +145,10 @@ def get_mdbl_list_contents(list_type, list_id):
 	return mdbl_cache.cache_mdbl_object(_get_mdbl_paginated_list, string, url)['items']
 
 def mdbl_get_lists(list_type):
-	if list_type == 'external': string, url = 'mdbl_external', 'external/lists/user'
-	else: string, url = 'mdbl_my_lists', 'lists/user'
-	return mdbl_cache.cache_mdbl_object(call_mdblist, string, url)['items']
+	if list_type == 'liked_lists': key, string, url = 'lists', 'mdbl_liked_lists', 'lists/liked'
+	elif list_type == 'external': key, string, url = 'items', 'mdbl_external', 'external/lists/user'
+	else: key, string, url = 'items', 'mdbl_my_lists', 'lists/user'
+	return mdbl_cache.cache_mdbl_object(call_mdblist, string, url)[key]
 
 def add_to_collection(data):
 	result = call_mdblist('sync/collection', json=data, method='post')
@@ -415,7 +414,7 @@ def mdbl_sync_activities(force_update=False, init_callback=None, monitor=None):
 			func(*args)
 	if _compare(latest['list_updated_at'], cached['list_updated_at']):
 		success = 'success'
-		for i in ('external', 'my_lists'):
+		for i in ('external', 'liked_lists', 'my_lists'):
 			mdbl_cache.clear_mdbl_list_data(i)
 			mdbl_cache.clear_mdbl_list_contents_data(i)
 	refresh_movies_watched = _compare(latest['watched_at'], cached['watched_at'])
