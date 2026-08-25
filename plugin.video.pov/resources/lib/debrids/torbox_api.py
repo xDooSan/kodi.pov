@@ -4,10 +4,8 @@ from modules import kodi_utils
 # logger = kodi_utils.logger
 
 ls, get_setting = kodi_utils.local_string, kodi_utils.get_setting
-user_agent = 'POV/%s' % kodi_utils.get_addoninfo('version')
 ip_url = 'https://api.ipify.org'
 base_url = 'https://api.torbox.app/v1/api/'
-timeout = 20.0
 session = requests.Session()
 session.custom_errors = requests.exceptions.ConnectionError, requests.exceptions.Timeout
 session.mount('https://api.torbox.app', requests.adapters.HTTPAdapter(max_retries=1))
@@ -17,12 +15,13 @@ class TorBoxAPI:
 	defaults_to_cloud = True
 
 	def __init__(self):
+		self.timeout = int(get_setting('scrapers.timeout.1') or 10)
 		self.token = get_setting('tb.token')
 		session.headers.update(self.headers())
 
 	def _request(self, method, path, params=None, json=None, data=None):
 		url = base_url + path
-		try: response = session.request(method, url, params=params, json=json, data=data, timeout=timeout)
+		try: response = session.request(method, url, params=params, json=json, data=data, timeout=self.timeout)
 		except session.custom_errors: return kodi_utils.notification('%s timeout' % __name__)
 		if not response.ok: kodi_utils.logger(__name__, f"{response.reason}\n{response.url}")
 		response = response.json() if 'json' in response.headers.get('Content-Type', '') else response
@@ -36,10 +35,10 @@ class TorBoxAPI:
 		return self._request('post', path, params=params, json=json, data=data)
 
 	def _is_control(self, path):
-		return any(i in path for i in ('control', 'edit'))
+		return any(i in path for i in ('/control', '/edit'))
 
 	def headers(self):
-		return {'User-Agent': user_agent, 'Authorization': 'Bearer %s' % self.token}
+		return {'Authorization': 'Bearer %s' % self.token}
 
 	def days_remaining(self):
 		from datetime import datetime
@@ -78,13 +77,13 @@ class TorBoxAPI:
 
 	def unrestrict_link(self, file_id):
 		if 'usenet' in file_id: path, key = 'usenet/requestdl', 'usenet_id'
-		elif 'webdl' in file_id: path, key = 'webdl/requestdl', 'webdl_id'
+		elif 'webdl' in file_id: path, key = 'webdl/requestdl', 'web_id'
 		else: path, key = 'torrents/requestdl', 'torrent_id'
-		try: user_ip = requests.get(ip_url, timeout=2.0).text
-		except: user_ip = ''
-		params = {'user_ip': user_ip} if user_ip else {}
 		ids = file_id.split(',')
-		params.update({'token': self.token, key: ids[0], 'file_id': ids[1]})
+		params = {key: ids[0], 'file_id': ids[1], 'token': self.token}
+		try: user_ip = requests.get(ip_url, timeout=2.0).text.strip()
+		except: user_ip = ''
+		if user_ip: params['user_ip'] = user_ip
 		return self._get(path, params=params)
 
 	def check_cache(self, hashes):
@@ -112,7 +111,7 @@ class TorBoxAPI:
 	def parse_magnet_pack(self, magnet_url, info_hash):
 		from modules.source_utils import supported_video_extensions
 		try:
-			extensions = supported_video_extensions()
+			extensions = tuple(supported_video_extensions())
 			path = 'torrents' if magnet_url.startswith('magnet') else 'usenet'
 			torrent_id = self.create_transfer(magnet_url)
 			torrent_files = self.torrent_info(torrent_id, path)
@@ -122,7 +121,7 @@ class TorBoxAPI:
 				 'torrent_id': '%s,%s' % (torrent_id, path),
 				 'filename': item['short_name']}
 				for item in torrent_files['files']
-				if item['short_name'].lower().endswith(tuple(extensions))
+				if item['short_name'].lower().endswith(extensions)
 			]
 		except Exception as e:
 			if torrent_id: self.delete_torrent('%s,%s' % (torrent_id, path))
@@ -151,12 +150,6 @@ class TorBoxAPI:
 			from caches.debrid_cache import DebridCache
 			dbcon = database_connect(maincache_db)
 			dbcur = dbcon.cursor()
-			try:
-				dbcur.execute("""DELETE FROM maincache WHERE id = ?""", ('torbox_usenet_queries',))
-				clear_property('torbox_usenet_queries')
-				dbcon.commit()
-				usenet_queries_success = True
-			except: usenet_queries_success = False
 			# USER CLOUD
 			try:
 				dbcur.execute("""SELECT id FROM maincache WHERE id LIKE ?""", ('pov_tb_user_cloud%',))
@@ -174,6 +167,6 @@ class TorBoxAPI:
 				hash_cache_status_success = True
 			except: hash_cache_status_success = False
 		except: return False
-		if False in (usenet_queries_success, user_cloud_success, hash_cache_status_success): return False
+		if False in (user_cloud_success, hash_cache_status_success): return False
 		return True
 

@@ -6,13 +6,14 @@
 import re
 from html import unescape
 from urllib.parse import quote_plus, parse_qs, urlparse
-from fenom import client
-from fenom import source_utils
+from magneto.modules import client
+from magneto.modules import source_utils
 
 
-target_class = 'bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition duration-150 ease-in-out'
-flexible_classes = r'(?=.*bg-white)(?=.*rounded-lg).*'
+target_class = r'(?=.*items-start).*'
 RE_MAGNET = re.compile(r'href\s*=\s*["\'](magnet:[^"\']+)["\']', re.I)
+RE_SIZE = re.compile(r'<i class="[^"]*fa-download[^"]*"></i>\s*<span>\s*([\d.]+\s*[GKM]B)\s*</span>', re.I)
+RE_SEEDERS = re.compile(r'fa-arrow-up[^"]*"></i>\s*<span[^>]*>\s*(\d+)\s*</span>\s*<span>seeders</span>', re.I)
 
 
 class source:
@@ -70,7 +71,7 @@ class source:
 		try:
 			results = client.request(url, timeout=self.timeout)
 			if not results: return
-			rows = client.parseDOM(results, 'div', attrs={'class': flexible_classes})
+			rows = client.parseDOM(results, 'div', attrs={'class': target_class})
 		except:
 			source_utils.scraper_error('BITSEARCH')
 			return
@@ -82,8 +83,8 @@ class source:
 				magnet_url = unescape(magnet_match.group(1))
 				parsed_query = parse_qs(urlparse(magnet_url).query)
 				xt_param = parsed_query.get('xt', [''])[-1]
-				if xt_param: hash = xt_param.split(':')[-1]
-				else: continue
+				if not xt_param: continue
+				hash = xt_param.split(':')[-1]
 				title = parsed_query.get('dn', ['Unknown'])[-1]
 				name = source_utils.clean_name(title)
 				if not any(x in name.lower() for x in ['multi', 'vf2', 'french', 'vff', 'vfq', 'truefrench']): continue
@@ -100,15 +101,16 @@ class source:
 					name_lower = name.lower()
 					if any(re.search(item, name_lower) for item in ep_strings): continue
 
-				spans = client.parseDOM(row, 'span')
 				try:
-					seeders = int(spans[spans.index('seeders') - 1])
+					seeders = RE_SEEDERS.search(row)
+					seeders = int(seeders.group(1)) if seeders else 0
 					if self.min_seeders > seeders: continue
 				except: seeders = 0
 
 				quality, info = source_utils.get_release_quality(name_info, url)
 				try:
-					size = next((item for item in spans if item.endswith(('GB', 'MB'))), '')
+					size = RE_SIZE.search(row)
+					size = size.group(1).strip() if size else '0 GB'
 					dsize, isize = source_utils._size(size)
 					info.insert(0, isize)
 				except: dsize = 0
@@ -163,7 +165,7 @@ class source:
 		try:
 			results = client.request(link, timeout=self.timeout)
 			if not results: return
-			rows = client.parseDOM(results, 'div', attrs={'class': flexible_classes})
+			rows = client.parseDOM(results, 'div', attrs={'class': target_class})
 		except:
 			source_utils.scraper_error('BITSEARCH')
 			return
@@ -175,8 +177,8 @@ class source:
 				magnet_url = unescape(magnet_match.group(1))
 				parsed_query = parse_qs(urlparse(magnet_url).query)
 				xt_param = parsed_query.get('xt', [''])[-1]
-				if xt_param: hash = xt_param.split(':')[-1]
-				else: continue
+				if not xt_param: continue
+				hash = xt_param.split(':')[-1]
 				title = parsed_query.get('dn', ['Unknown'])[-1]
 				name = source_utils.clean_name(title)
 				if not any(x in name.lower() for x in ['multi', 'vf2', 'french', 'vff', 'vfq', 'truefrench']): continue
@@ -200,15 +202,16 @@ class source:
 				if self.undesirables and source_utils.remove_undesirables(name_info, self.undesirables): continue
 
 				url = 'magnet:?xt=urn:btih:%s&dn=%s' % (hash, name)
-				spans = client.parseDOM(row, 'span')
 				try:
-					seeders = int(spans[spans.index('seeders') - 1])
+					seeders = RE_SEEDERS.search(row)
+					seeders = int(seeders.group(1)) if seeders else 0
 					if self.min_seeders > seeders: continue
 				except: seeders = 0
 
 				quality, info = source_utils.get_release_quality(name_info, url)
 				try:
-					size = next((item for item in spans if item.endswith(('GB', 'MB'))), '')
+					size = RE_SIZE.search(row)
+					size = size.group(1).strip() if size else '0 GB'
 					dsize, isize = source_utils._size(size)
 					info.insert(0, isize)
 				except: dsize = 0

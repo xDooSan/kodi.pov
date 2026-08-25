@@ -30,7 +30,7 @@ def call_trakt(path, params=None, data=None, with_auth=True, method=None, pagina
 			'post' if data is not None else method or 'get',
 			base_url % path,
 			params=None if data is not None else params,
-			json=data if data else None,
+			json=data,
 			headers=headers,
 			timeout=timeout
 		)
@@ -63,7 +63,7 @@ def trakt_refresh():
 		data['refresh_token'] = get_setting('trakt.refresh')
 		data['client_secret'] = get_setting('trakt.client_secret')
 		data['client_id'] = get_setting('trakt.client_id')
-		response = requests.post(base_url % 'oauth/token', json=data, timeout=timeout).json()
+		response = requests.post('https://auth.trakt.tv/oauth/token', json=data, timeout=timeout).json()
 		expires = int(response['created_at']) + int(response['expires_in'])
 		refresh, token = response['refresh_token'], response['access_token']
 		set_setting('trakt.token', token)
@@ -182,8 +182,24 @@ def trakt_recommendations(mediatype):
 	return trakt_cache.cache_trakt_object(call_trakt, string, url)
 
 def trakt_droplist(mediatype, page_no):
-	results = trakt_get_hidden_items('dropped')
-	return [{'media_ids': {'tmdb': i}} for i in results], 1
+	def _process(url):
+		hidden_data = _get_trakt_paginated_list(url)
+		if not hidden_data: return []
+		results = []
+		for item in hidden_data:
+			show_ids = item['show']['ids']
+			tmdb_id = show_ids.get('tmdb')
+			if tmdb_id: results.append({
+				'media_ids': {'tmdb': tmdb_id},
+				'title': item['show']['title']
+			})
+		return results
+	string = 'trakt_hidden_items_dropped'
+	url = 'users/hidden/dropped?type=show'
+	data = trakt_cache.cache_trakt_object(_process, string, url)
+	if page_no == 'all': return data
+	original_list = sort_for_article(data, 'title', settings.ignore_articles())
+	return original_list, 1
 
 def trakt_calendar_data(url, exclude_anime=False):
 	result = []
@@ -217,7 +233,7 @@ def trakt_anime_calendar(current_date):
 	start, finish = trakt_calendar_days(False, current_date)
 	string = 'trakt_anime_calendar_%s_%s' % (start, finish)
 	url = {'path': 'calendars/all/shows/%s/%s' % (start, finish), 'params': {'genres': 'anime'}, 'with_auth': False}
-	return trakt_cache.cache_trakt_object(lambda u: trakt_calendar_data(u, exclude_anime=False), string, url)
+	return cache_object(lambda u: trakt_calendar_data(u, exclude_anime=False), string, url)
 
 def trakt_collection_lists(mediatype, param1):
 	data = trakt_fetch_collection_watchlist('collection', mediatype)
@@ -257,7 +273,7 @@ def trakt_watchlist(mediatype, page_no):
 	if not settings.show_unaired_watchlist():
 		current_date = get_datetime()
 		original_list = [i for i in original_list if first_aired(i)]
-	sort_key = settings.lists_sort_order('watchlist')
+	sort_key = settings.lists_sort_order('watchlist', mediatype)
 	if   sort_key == 2: original_list.sort(key=itemgetter('premiered'), reverse=True)
 	elif sort_key == 1: original_list.sort(key=itemgetter('collected_at'), reverse=True)
 	else: original_list = sort_for_article(original_list, 'title', settings.ignore_articles())
@@ -410,6 +426,10 @@ def hide_unhide_trakt_items(action, mediatype, media_id, list_type):
 	trakt_sync_activities()
 	kodi_utils.container_refresh()
 
+def trakt_get_hidden_items(list_type):
+	results = trakt_droplist('shows', 'all')
+	return [i['media_ids']['tmdb'] for i in results]
+
 def get_trakt_movie_id(item):
 	if item.get('tmdb'): return item['tmdb']
 	for k, v in (('imdb_id', 'imdb'),):
@@ -518,25 +538,6 @@ def trakt_progress_tv(progress_info):
 		insert_list.append(('episode', str(tmdb_id), season, episode, p_str, 0, item['paused_at'], item['id'], show['title']))
 	trakt_cache.TraktCache().set_bulk_tvshow_progress(insert_list)
 
-def trakt_get_hidden_items(list_type):
-	def _process(url):
-		hidden_data = _get_trakt_paginated_list(url)
-		if not hidden_data: return []
-		results, lookup_list = [], []
-		for item in hidden_data:
-			show_ids = item['show']['ids']
-			tmdb_id = show_ids.get('tmdb')
-			if tmdb_id: results.append(tmdb_id)
-			else: lookup_list.append(show_ids)
-		if lookup_list:
-			with ThreadPoolExecutor() as executor:
-				thread_results = executor.map(get_trakt_tvshow_id, lookup_list)
-			results.extend([i for i in thread_results if i is not None])
-		return results
-	string = 'trakt_hidden_items_%s' % list_type
-	url = 'users/hidden/dropped?type=show'
-	return trakt_cache.cache_trakt_object(_process, string, url)
-
 def trakt_playback_progress():
 	url = 'sync/playback'
 	return call_trakt(url)
@@ -562,7 +563,8 @@ def trakt_sync_activities(force_update=False, init_callback=None, monitor=None):
 		trakt_cache.clear_all_trakt_cache_data(refresh=False)
 	trakt_cache.clear_trakt_calendar()
 	latest = trakt_get_activity()
-	if not latest:
+	if not (isinstance(latest, dict) and 'all' in latest):
+		logger('trakt error', str(latest))
 		trakt_cache.clear_all_trakt_cache_data(refresh=False)
 		return 'failed'
 	cached = trakt_cache.reset_activity(latest)

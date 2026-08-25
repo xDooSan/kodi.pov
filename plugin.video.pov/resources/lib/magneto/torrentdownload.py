@@ -5,8 +5,8 @@
 
 import re
 from urllib.parse import quote_plus, unquote_plus
-from fenom import client
-from fenom import source_utils
+from magneto.modules import client
+from magneto.modules import source_utils
 
 
 class source:
@@ -72,6 +72,7 @@ class source:
 				link = re.search(r'href\s*=\s*["\']/(.+?)["\']>', columns[0], re.I).group(1).split('/')
 				hash = link[0]
 				name = source_utils.clean_name(unquote_plus(link[1]).replace('&amp;', '&'))
+				if not any(x in name.lower() for x in ['multi', 'vf2', 'french', 'vff', 'vfq', 'truefrench']): continue
 
 				if not source_utils.check_title(self.title, self.aliases, name, self.hdlr, self.year): continue
 				name_info = source_utils.info_from_name(name, self.title, self.year, self.hdlr, self.episode_title)
@@ -158,6 +159,7 @@ class source:
 				link = re.search(r'href\s*=\s*["\']/(.+?)["\']>', columns[0], re.I).group(1).split('/')
 				hash = link[0]
 				name = source_utils.clean_name(unquote_plus(link[1]).replace('&amp;', '&'))
+				if not any(x in name.lower() for x in ['multi', 'vf2', 'french', 'vff', 'vfq', 'truefrench']): continue
 
 				episode_start, episode_end = 0, 0
 				if not self.search_series:
