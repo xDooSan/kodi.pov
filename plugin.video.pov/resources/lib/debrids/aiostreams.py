@@ -16,8 +16,9 @@ class source:
 			sources_append = sources.append
 			if not all(self.auth): return internal_results(self.scrape_provider, sources)
 			title, season, episode = info.get('title'), info.get('season'), info.get('episode')
-			if 'timeout' in info: self.timeout = info['timeout'] - 1
-			scrape_results = self.search(info['imdb_id'], season, episode)
+			if 'timeout' in info: self.timeout = int(info['timeout'])
+			media_id = info['imdb_id'] or ('tmdb:%s' % info['tmdb_id'])
+			scrape_results = self.search(media_id, season, episode)
 			from modules.kodi_utils import logger
 			if self.errors: logger(self.scrape_provider, f"{self.errors}")
 			logger(self.scrape_provider, f"{title} : {self.elapsed}s, {len(scrape_results)}")
@@ -69,10 +70,11 @@ class source:
 		internal_results(self.scrape_provider, sources)
 		return sources
 
-	def search(self, imdb, season, episode):
+	def search(self, media_id, season, episode):
 		scrape_results = []
-		if episode: params = {'type': 'series', 'id': '%s:%s:%s' % (imdb, season, episode)}
-		else: params = {'type': 'movie', 'id': '%s' % imdb}
+		if episode: params = {'type': 'series', 'id': '%s:%s:%s' % (media_id, season, episode)}
+		else: params = {'type': 'movie', 'id': '%s' % media_id}
+		params['requiredFields'] = 'parsedFile'
 		try:
 			base_url = self.resolve_aio_instance()
 			search_link = '%s/api/v1/search' % base_url.strip().rstrip('/')
@@ -114,20 +116,21 @@ class source:
 		return get_setting(setting_id)
 
 def unrestrict_link(url):
-	url, *headers = url.rsplit('|', 1)
-	try: headers = dict(parse_qsl(*headers))
-	except: headers = dict()
+	from magneto.modules.client import randomagent
+	base_url, *headers = url.rsplit('|', 1)
+	try: req_headers = requests.structures.CaseInsensitiveDict(parse_qsl(*headers))
+	except: req_headers = requests.structures.CaseInsensitiveDict()
+	if 'User-Agent' not in req_headers: req_headers['User-Agent'] = randomagent()
 	try: # some servers do not accept HEAD requests, must use GET + stream
-		with requests.get(url, headers=headers, stream=True, timeout=30) as response:
+		with requests.get(base_url, headers=req_headers, stream=True, timeout=30) as response:
 			response.raise_for_status() # 3xx passes, 4xx/5xx raises
-		if headers: return '|'.join((response.url, urlencode(headers)))
+		if headers: return '|'.join((response.url, *headers))
 		return response.url
 	except requests.exceptions.RequestException as e:
 		from modules.kodi_utils import logger
 		logger('unrestrict_link error', f"{type(e)}: {e}")
 
-def aio_help():
-	return show_text('AIOStreams', text=(
+def aio_help(): return show_text('AIOStreams', text=(
 """
 AIOStreams consolidates multiple sources and debrid services into a single,
 highly customizable provider.  When enabled AIOStreams supersedes
