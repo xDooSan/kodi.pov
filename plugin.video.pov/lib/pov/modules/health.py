@@ -1,16 +1,12 @@
-import requests
 from concurrent.futures import ThreadPoolExecutor as TPE, as_completed
 from time import monotonic
-import xbmc, xbmcaddon, xbmcgui
-from magneto import sources as magneto_sources
+import urllib3
+import xbmc
+import xbmcgui
+import xbmcaddon
+from pov import sources as magneto_sources
 
-log = xbmc.log
-Addon = xbmcaddon.Addon
-list_item = xbmcgui.ListItem
-dialog, select = xbmcgui.DialogProgress(), xbmcgui.Dialog().select
-input, notification = xbmcgui.Dialog().input, xbmcgui.Dialog().notification
-
-default_icon = Addon().getAddonInfo('icon')
+default_icon = xbmcaddon.Addon().getAddonInfo('icon')
 movie_year_check_url = 'https://v2.sg.media-imdb.com/suggestion/t/%s.json'
 total_str = 'TOTAL: [COLOR red][B]%s[/B][/COLOR]  |  '
 total_str += '4K: [COLOR red][B]%d[/B][/COLOR]  |  1080p: [COLOR red][B]%d[/B][/COLOR]  |  '
@@ -29,7 +25,7 @@ def get_movie_source(module):
 			quality = result.get('quality')
 			if quality not in module.metrics: module.metrics['SD'] += 1
 			else: module.metrics[quality] = module.metrics.get(quality, 0) + 1
-	except Exception as e: log(str(e), 1)
+	except Exception as e: xbmc.log(str(e), 1)
 	return module
 
 def module_factory(modules, data=None):
@@ -51,29 +47,29 @@ def _make_items(modules):
 			line1 = '%s: %.3fs' % (module.name.upper(), module.elapsed)
 			line2 = total_str % (total, *values)
 			icon = module.data['poster'] or default_icon
-			item = list_item(line1, line2, offscreen=True)
+			item = xbmcgui.ListItem(line1, line2, offscreen=True)
 			item.setArt({'icon': icon})
 			yield item
 		except: pass
 
-def magneto():
-	data = {'imdb': 'tt0448134', 'title': 'Sunshine', 'aliases': [], 'year': 2007}
-	data['poster'] = default_icon
-
-	imdb_id = input(input_str, defaultt=data['imdb'])
+def health():
+	progress, dialog = xbmcgui.DialogProgress(), xbmcgui.Dialog()
+	data = {'poster': default_icon, 'imdb': 'tt0448134', 'title': 'Sunshine', 'aliases': [], 'year': 2007}
+	imdb_id = dialog.input(input_str, defaultt=data['imdb'])
+	if not imdb_id: return dialog.notification(heading, 'Cancelled', time=1500)
 	url = movie_year_check_url % imdb_id
-	dialog.create(heading, 'Please Wait...')
-	dialog.update(0, 'Fetching Metadata...')
-	result = requests.get(url, timeout=5)
-	if result.ok:
-		result = result.json()
-		items = (i for i in result['d'] if i['id'] == imdb_id)
-		items = next(items, None) or dialog.close()
-		if not items: return notification(heading, nf_str % imdb_id, time=3000)
-		data['poster'] = items.get('i', {}).get('imageUrl')
-		data['title'] = items.get('l')
-		data['imdb'] = items.get('id')
-		data['year'] = items.get('y')
+	progress.create(heading, 'Please Wait...')
+	progress.update(0, 'Fetching Metadata...')
+	response = urllib3.request('get', url, timeout=5)
+	if not response.status < 400: return dialog.notification(heading, 'Error', time=1500)
+	result = response.json()
+	items = (i for i in result['d'] if i['id'] == imdb_id)
+	items = next(items, None) or progress.close()
+	if not items: return dialog.notification(heading, nf_str % imdb_id, time=3000)
+	data['poster'] = items.get('i', {}).get('imageUrl')
+	data['title'] = items.get('l')
+	data['imdb'] = items.get('id')
+	data['year'] = items.get('y')
 	data['rootname'] = '%s (%s)' % (data['title'], data['year'])
 	data['year'] = str(data['year'])
 
@@ -87,12 +83,12 @@ def magneto():
 			line1 = 'Source: %s' % module.name.upper()
 			line2 = 'Elapsed: %.3f' % module.elapsed
 			line3 = 'Results: %3d' % sum(module.metrics.values())
-			dialog.update(int(i / len_modules * 100), '[CR]'.join((line0, line1, line2, line3)))
-	dialog.update(100, 'Processing Results...')
+			progress.update(int(i / len_modules * 100), '[CR]'.join((line0, line1, line2, line3)))
+	progress.update(100, 'Processing Results...')
 	modules.sort(key=lambda k: k.elapsed)
 	results = [i for i in modules if i.results]
 	results.extend(i for i in modules if i not in results)
 	items = list(_make_items(results))
-	dialog.close()
-	select(f"{heading} - {data['rootname']}", items, useDetails=True)
+	progress.close()
+	dialog.select(f"{heading} - {data['rootname']}", items, useDetails=True)
 

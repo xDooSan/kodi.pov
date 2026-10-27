@@ -4,25 +4,26 @@
 
 import re
 import unicodedata
+from concurrent.futures import Future
 from string import printable
 from threading import Thread as thread
-from magneto.modules import cleantitle, log_utils
-from magneto.modules.undesirables import Undesirables
-from magneto.modules.control import homeWindow, jsloads, setting as getSetting, setSetting
+from pov.modules import cleantitle, log_utils
+from pov.modules.control import homeWindow, jsloads, setSetting, setting as getSetting
+from pov.modules.undesirables import Undesirables
 
 
 LANG = ('arabic', 'bgaudio', 'castellano', 'chinese', 'dutch', 'finnish', 'french', 'german', 'greek', 'hebrew', 'italian', 'korean', 'latino', 'polish',
 				'portuguese', 'russian', 'spanish', 'tamil', 'telugu', 'truefrench', 'truespanish', 'turkish')
 ABV_LANG = ('.ara.', '.ces.', '.chi.', '.chs.', '.cze.', '.dan.', '.de.', '.deu.', '.dut.', '.ell.', '.es.', '.esl.', '.esp.', '.fi.', '.fin.', '.fr.', '.fra.', '.fre.', '.frn.', '.gai.', '.ger.', '.gle.', '.gre.',
-						'.gtm.', '.he.', '.heb.', '.hi.', '.hin.', '.hun.', '.hindi.', '.ind.', '.iri.', '.it.', '.ita.', '.ja.', '.jap.', '.jpn.', '.ko.', '.kor.', '.lat.', '.nl.', '.lit.', '.nld.', '.nor.', '.pl.', '.pol.',
-						'.pt.', '.por.', '.ru.', '.rus.', '.som.', '.spa.', '.sv.', '.sve.', '.swe.', '.tha.', '.tr.', '.tur.', '.uae.', '.uk.', '.ukr.', '.vi.', '.vie.', '.zh.', '.zho.')
+				'.gtm.', '.he.', '.heb.', '.hi.', '.hin.', '.hun.', '.hindi.', '.ind.', '.iri.', '.it.', '.ita.', '.ja.', '.jap.', '.jpn.', '.ko.', '.kor.', '.lat.', '.nl.', '.lit.', '.nld.', '.nor.', '.pl.', '.pol.',
+				'.pt.', '.por.', '.ru.', '.rus.', '.som.', '.spa.', '.sv.', '.sve.', '.swe.', '.tha.', '.tr.', '.tur.', '.uae.', '.uk.', '.ukr.', '.vi.', '.vie.', '.zh.', '.zho.')
 DUBBED = ('bengali.dub', 'dublado', 'dubbed', 'pldub')
 SUBS = ('subita', 'subfrench', 'subspanish', 'subtitula', 'swesub', 'nl.subs')
 
 ENG_CHECK = ('.eng.', '.en.', 'english', 'multi')
 SRT_CHECK = ('with.srt', '.avi', '.mkv', '.mp4')
 
-try: UNDESIRABLES = jsloads(homeWindow.getProperty('pov_unwanted'))['undesirables']
+try: UNDESIRABLES = jsloads(homeWindow().getProperty('pov_unwanted'))['undesirables']
 except: UNDESIRABLES = []
 # viruseproject has lots of uploads on glotorrents and site fixes the "&dn=???" portion in html title to reflect the true range the pack covers vs. assclowns incomplete pack file name used
 
@@ -47,10 +48,8 @@ season_ordinal2_dict = {'1': '1st', '2': '2nd', '3': '3rd', '4': '4th', '5': '5t
 			'11': '11th', '12': '12th', '13': '13th', '14': '14th', '15': '15th', '16': '16th', '17': '17th', '18': '18th', '19': '19th',
 			'20': '20th', '21': '21st', '22': '22nd', '23': '23rd', '24': '24th', '25': '25th'}
 
-try: unwanted_tags = jsloads(homeWindow.getProperty('pov_unwanted'))['unwanted']
+try: unwanted_tags = jsloads(homeWindow().getProperty('pov_unwanted'))['unwanted']
 except: unwanted_tags = []
-
-home_getProperty = homeWindow.getProperty
 
 
 class Thread(thread):
@@ -58,6 +57,20 @@ class Thread(thread):
 		self._target = target
 		self._args = args
 		thread.__init__(self, target=self._target, args=self._args)
+
+class SourceRegistry:
+	_lock = None # Must be overridden by subclass
+	_cache = None # Must be overridden by subclass
+
+	@classmethod
+	def clear_all(cls):
+		with cls._lock: cls._cache.clear()
+
+	def get_future(self, key):
+		with self._lock:
+			if key not in self._cache:
+				self._cache[key] = Future()
+			return self._cache[key]
 
 def log_utils_error(*args):
 	return log_utils.error(*args)
@@ -68,7 +81,7 @@ def scraper_error(provider):
 	log_utils.log(provider.upper() + ' - Exception: \n' + str(failure), caller='scraper_error', level=log_utils.LOGERROR)
 
 def get_undesirables():
-	if not getSetting('filter.undesirables') == 'true' or home_getProperty('fs_filterless_search') == 'true' : return []
+	if not getSetting('filter.undesirables') == 'true' or homeWindow().getProperty('fs_filterless_search') == 'true' : return []
 	try: undesirables = Undesirables().get_enabled()
 	except: undesirables = UNDESIRABLES
 	return undesirables
@@ -77,7 +90,7 @@ def remove_undesirables(release_info, undesirables):
 	if any(value in release_info for value in undesirables): return True
 
 def check_foreign_audio():
-	return False if home_getProperty('fs_filterless_search') == 'true' else getSetting('filter.foreign.single.audio') == 'true'
+	return False if homeWindow().getProperty('fs_filterless_search') == 'true' else getSetting('filter.foreign.single.audio') == 'true'
 
 def remove_lang(release_info, check_foreign_audio):
 	if not release_info: return False
@@ -96,11 +109,11 @@ def remove_lang(release_info, check_foreign_audio):
 		return False
 
 COMPILED_RESOLUTIONS = {k: re.compile(v, re.I) for k, v in {
-	'4K': r'\b(2160p?|216o|4k|ultrahd|ultra\.hd|uhd)\b',
-	'1080p': r'\b(1080p?|1o8o|108o|1o80|fhd)\b',
-	'720p': r'\b(720p?|72o)\b(?!mb)',
+	'CAM': r'\b(cam|camrip|dvdcam|dvdts|hdcam|hctc|hdtc|hdts|hqcam|ts|tc|tsrip|telecine|telesync)\b',
 	'SCR': r'\b(dvdscr|screener|\.scr\.|r5|r6)\b',
-	'CAM': r'\b(cam|camrip|dvdcam|dvdts|hdcam|hctc|hdtc|hdts|hqcam|ts|tc|tsrip|telecine|telesync)\b'
+	'720p': r'\b(720p?|72o)\b(?!mb)',
+	'1080p': r'\b(1080p?|1o8o|108o|1o80|fhd)\b',
+	'4K': r'\b(2160p?|216o|4k|ultrahd|ultra\.hd|uhd)\b'
 }.items()}
 
 def get_qual(term):
@@ -440,6 +453,12 @@ def strip_non_ascii_and_unprintable(text):
 	except:
 		log_utils_error()
 		return text
+
+def _years(data):
+	if 'tvshowtitle' in data: return data['year'], None
+	base_year = int(data['year'])
+	years = [str(i) for i in range(base_year - 1, base_year + 2)]
+	return data['year'], years
 
 def _size(siz):
 	try:

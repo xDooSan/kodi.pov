@@ -224,7 +224,7 @@ class Navigator:
 		clean_databases_str = '%s %s' % (clean_str, ls(32523))
 		clear_all_upper = '[B]%s[/B]' % (clca_str % all_str).upper()
 		clear_meta_str, clear_list_str = clca_str % ls(32527), clca_str % ls(32501)
-		clint_str, clext_str = clca_str % ls(32117), clca_str % ls(32118)
+		clint_str, clext_str = clca_str % ls(32139), clca_str % ls(32138)
 		clear_trakt_str, clear_mdbl_str, clear_imdb_str = clca_str % 'Trakt', clca_str % 'MDBList', clca_str % 'IMDb'
 		clear_pm_str, clear_oc_str, clear_tb_str = clca_str % 'Premiumize', clca_str % 'Offcloud', clca_str % 'TorBox'
 		clear_rd_str, clear_ad_str, clear_en_str = clca_str % 'Real Debrid', clca_str % 'All Debrid', clca_str % 'Easynews'

@@ -4,7 +4,7 @@
 
 import re
 import html
-from magneto.modules import log_utils
+from pov.modules import log_utils
 
 def log_utils_error(*args):
 	return log_utils.error(*args)

@@ -2,12 +2,12 @@
 	Fenomscrapers Module
 """
 
+import re
 from ast import literal_eval
 from hashlib import md5
-import re
-from time import time
 from sqlite3 import dbapi2 as db
-from magneto.modules.control import existsPath, dataPath, makeFile, cacheFile
+from time import time
+from pov.modules.control import cacheFile, dataPath, existsPath, makeFile
 
 
 def get(function, duration, *args):
@@ -39,7 +39,7 @@ def get(function, duration, *args):
 			cache_insert(key, fresh_result)
 			return literal_eval(fresh_result)
 	except:
-		from magneto.modules import log_utils
+		from pov.modules import log_utils
 		log_utils.error()
 		return None
 
@@ -57,7 +57,7 @@ def cache_get(key):
 		results = dbcur.execute('''SELECT * FROM cache WHERE key=?''', (key,)).fetchone()
 		return results
 	except:
-		from magneto.modules import log_utils
+		from pov.modules import log_utils
 		log_utils.error()
 		return None
 	finally:
@@ -74,7 +74,7 @@ def cache_insert(key, value):
 			dbcur.execute('''INSERT INTO cache Values (?, ?, ?)''', (key, value, now))
 		dbcur.connection.commit()
 	except:
-		from magneto.modules import log_utils
+		from pov.modules import log_utils
 		log_utils.error()
 	finally:
 		dbcur.close() ; dbcon.close()

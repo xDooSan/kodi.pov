@@ -1,14 +1,14 @@
 import json
 from threading import Thread
 from caches import watched_cache as ws
+from indexers.metadata import art_infodict, episode_infodict, info_tagger, movie_show_infodict
 from indexers.segments import SegmentScraper
-from indexers.metadata import art_infodict, movie_show_infodict, episode_infodict, info_tagger
 from modules import kodi_utils, settings
-from modules.utils import sec2time, make_title_slug
+from modules.utils import make_title_slug, sec2time
 # from modules.kodi_utils import logger
 
 KODI_VERSION, make_cast_list = kodi_utils.get_kodi_version(), kodi_utils.make_cast_list
-ls, get_setting = kodi_utils.local_string, kodi_utils.get_setting
+ls, get_setting, get_visibility = kodi_utils.local_string, kodi_utils.get_setting, kodi_utils.get_visibility
 get_art_provider, meta_user_info = settings.get_art_provider, settings.metadata_user_info
 fanart_empty = kodi_utils.get_addoninfo('fanart')
 poster_empty = kodi_utils.media_path('box_office.png')
@@ -19,6 +19,9 @@ class MediaPlayer(kodi_utils.xbmc_player):
 		kodi_utils.xbmc_player.__init__(self)
 		self.playback_event = None
 
+	def windowIsActive(self):
+		return any(get_visibility(i) for i in ('Window.IsActive(fullscreenvideo)', 'Window.IsActive(videoosd)'))
+
 	def onAVStarted(self):
 		self.playback_event = True
 
@@ -26,12 +29,19 @@ class MediaPlayer(kodi_utils.xbmc_player):
 		try: kodi_utils.hide_busy_dialog()
 		except: pass
 
+	def onPlayBackEnded(self):
+		self.playback_event = None
+
 	def onPlayBackStopped(self):
+		self.playback_event = None
+
+	def onPlayBackError(self):
 		self.playback_event = None
 
 class POVPlayer(MediaPlayer):
 	def __init__(self):
 		MediaPlayer.__init__(self)
+		self.monitor = kodi_utils.xbmc_monitor()
 		self.set_resume, self.set_watched = 5, 80
 		self.media_marked, self.nextep_info_gathered = False, False
 		self.subs_searched, self.stingers_checked = False, False
@@ -46,11 +56,12 @@ class POVPlayer(MediaPlayer):
 		self.skip_intro_enabled = get_setting('skip_intro.enable') == 'true'
 		self.volume_check = get_setting('volumecheck.enabled', 'false') == 'true'
 
-	def run(self, url=None, meta=None, progress_media=None):
+	def run(self, url, filename, meta, progress_media=None):
 		if not url: return
 		try:
 			self.meta = meta or {}
 			self.meta_get = self.meta.get
+			self.filename = filename or ''
 			self.tmdb_id, self.imdb_id = self.meta_get('tmdb_id'), self.meta_get('imdb_id')
 			self.title, self.year = self.meta_get('title'), self.meta_get('year')
 			self.mediatype, self.tvdb_id = self.meta_get('mediatype'), self.meta_get('tvdb_id')
@@ -90,7 +101,7 @@ class POVPlayer(MediaPlayer):
 
 	def check_playback_events(self):
 		try:
-			kodi_utils.sleep(1000)
+			self.monitor.waitForAbort(1)
 			self.total_time, self.curr_time = self.getTotalTime(), self.getTime()
 			self.current_point = round(float(self.curr_time/self.total_time * 100), 1)
 			self.remaining_time = round(self.total_time - self.curr_time)
@@ -237,7 +248,7 @@ class POVPlayer(MediaPlayer):
 			if task_name == 'media_bookmark':
 				# isPlayingVideo is False before onPlayBackStopped called, ensure player cleanup
 				# completed or container_refresh in set_bookmark will sometimes crash container
-				_ = any(kodi_utils.sleep(500) or not self.playback_event for i in range(4))
+				_ = any(kodi_utils.sleep(300) or not self.windowIsActive() for i in range(5))
 				if args: ws.set_bookmark(*args)
 			elif task_name == 'media_watched':
 				if args: Thread(target=args[0], args=(args[1],)).start()

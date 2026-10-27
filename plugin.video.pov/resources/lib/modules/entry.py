@@ -1,5 +1,5 @@
-from threading import Thread
 from datetime import datetime
+from threading import Thread
 from modules import kodi_utils, settings
 
 logger, path_exists, translate_path = kodi_utils.logger, kodi_utils.path_exists, kodi_utils.translate_path
@@ -33,6 +33,7 @@ POV_ROUTES = {
 	'build_tvshow_list': lambda p: _import('menus.tvshows', 'Menu')(p).run(),
 	'build_season_list': lambda p: _import('menus.seasons', 'Seasons')(p).run(),
 	'build_episode_list': lambda p: _import('menus.seasons', 'Episodes')(p).run(),
+	'build_last_episode': lambda p: _import('menus.episodes', 'Menu')(p).run(),
 	'build_in_progress_episode': lambda p: _import('menus.episodes', 'Menu')(p).run(),
 	'build_next_episode': lambda p: _import('menus.episodes', 'Menu')(p).run(),
 	'build_my_calendar_trakt': lambda p: _import('menus.episodes', 'Menu')(p).run(),
@@ -45,7 +46,7 @@ POV_ROUTES = {
 	'open_settings': lambda p: _import('modules.kodi_utils', 'open_settings')(p.get('query')),
 	'clean_settings': lambda p: _import('modules.kodi_utils', 'clean_settings')(),
 	'clean_settings_window_properties': lambda p: _import('modules.kodi_utils', 'clean_settings_window_properties')(),
-	'clear_all_cache': lambda p: _import('modules.cache', 'clear_all_cache')(),
+	'clear_all_cache': lambda p: _import('modules.dialogs', 'clear_all_cache')(),
 	'clear_cache': lambda p: _import('modules.cache', 'clear_cache')(p.get('cache')),
 	'clean_databases': lambda p: _import('modules.cache', 'clean_databases')(),
 	'clear_streams': lambda p: _import('modules.tuneup', 'clear_streams')(),
@@ -80,10 +81,10 @@ POV_ROUTES = {
 	'upload_logfile': lambda p: _import('modules.kodi_utils', 'upload_logfile')(),
 	'myservices': lambda p: _import('modules.myservices', 'authorize')(),
 	'refer_link': lambda p: _import('modules.myservices', 'refer_link')(p['query']),
-	'undesirablesSelect': lambda p: _import('magneto.modules.undesirables', 'undesirablesSelect')(),
-	'undesirablesInput': lambda p: _import('magneto.modules.undesirables', 'undesirablesInput')(),
-	'undesirablesUserRemove': lambda p: _import('magneto.modules.undesirables', 'undesirablesUserRemove')(),
-	'speedTest': lambda p: _import('magneto.modules.speedtest', 'magneto')(),
+	'undesirablesSelect': lambda p: _import('indexers.pov_api', 'undesirablesSelect')(),
+	'undesirablesInput': lambda p: _import('indexers.pov_api', 'undesirablesInput')(),
+	'undesirablesUserRemove': lambda p: _import('indexers.pov_api', 'undesirablesUserRemove')(),
+	'healthTest': lambda p: _import('indexers.pov_api', 'health')(),
 	'aioHelp': lambda p: _import('debrids.aiostreams', 'aio_help')(),
 }
 
@@ -250,7 +251,7 @@ def checkUndesirablesDatabase():
 	logger('POV', 'CheckUndesirablesDatabase Service Starting')
 	path = 'special://home/addons/%s/resources/unwanted.json' % kodi_utils.get_addoninfo('id')
 	with kodi_utils.open_file(path) as file: set_property('pov_unwanted', str(file.read()))
-	from magneto.modules.undesirables import Undesirables, add_new_default_keywords
+	from indexers.pov_api import Undesirables, add_new_default_keywords
 	old_database = Undesirables().check_database()
 	if old_database: add_new_default_keywords()
 	return logger('POV', 'CheckUndesirablesDatabase Service Finished')
@@ -258,6 +259,7 @@ def checkUndesirablesDatabase():
 class SyncMonitorService:
 	def __init__(self, monitor_obj=None):
 		self.monitor = monitor_obj or kodi_utils.xbmc_monitor()
+		self.player = kodi_utils.xbmc_player()
 		from indexers.trakt_api import trakt_sync_activities
 		from indexers.mdblist_api import mdbl_sync_activities
 		from indexers.tmdb_api import tmdb_clean_watchlist, clear_tmdbl_cache
@@ -287,9 +289,9 @@ class SyncMonitorService:
 
 	def wait_if_busy(self):
 		while (
-			kodi_utils.player.isPlaying() or
-			kodi_utils.get_visibility('Container.isUpdating') or
-			get_property('pov_pause_services') == 'true'
+			self.player.isPlaying() or
+			get_property('pov_pause_services') == 'true' or
+			kodi_utils.get_visibility('Container.isUpdating')
 		): self.monitor.waitForAbort(10)
 
 	def refresh_widgets(self, monitor_name):
